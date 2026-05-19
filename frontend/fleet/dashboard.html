@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fleet Dashboard — The Automat Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCGtdbX3bJ_vWaJMQ0ZMJHqmH6yxs-iEIc&libraries=marker"></script>
+  <style>
+    :root {
+      --bg: #0c0c0f; --surface: #13131a; --surface2: #1a1a24;
+      --border: #23232f; --orange: #f05a1e; --orange-dim: rgba(240,90,30,0.12);
+      --white: #eeeaf2; --muted: #6b6b80; --green: #22d07a;
+      --red: #f0503a; --yellow: #f0c03a; --blue: #3a8ff0;
+      --mono: 'DM Mono', monospace; --sans: 'Familjen Grotesk', sans-serif;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:var(--bg); color:var(--white); font-family:var(--sans); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+    /* TOP BAR */
+    .topbar {
+      height:54px; background:var(--surface); border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; padding:0 20px; flex-shrink:0;
+    }
+    .topbar-left { display:flex; align-items:center; gap:12px; }
+    .logo-box { width:30px; height:30px; background:var(--orange); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:15px; }
+    .page-title { font-size:14px; font-weight:700; }
+    .fleet-name { font-family:var(--mono); font-size:11px; color:var(--muted); }
+    .ws-indicator { display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10px; }
+    .ws-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:blink 2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .ws-dot.disconnected { background:var(--red); animation:none; }
+
+    /* LAYOUT */
+    .body { display:flex; flex:1; overflow:hidden; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width:320px; flex-shrink:0; border-right:1px solid var(--border);
+      display:flex; flex-direction:column; overflow:hidden;
+    }
+
+    /* FLEET HEADER STATS */
+    .fleet-stats {
+      display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
+      border-bottom:1px solid var(--border); flex-shrink:0;
+    }
+    .fleet-stat {
+      padding:12px 14px; border-right:1px solid var(--border);
+      text-align:center;
+    }
+    .fleet-stat:last-child { border-right:none; }
+    .fleet-stat-value { font-size:22px; font-weight:800; letter-spacing:-0.02em; }
+    .fleet-stat-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; margin-top:2px; }
+    .fleet-stat.green .fleet-stat-value { color:var(--green); }
+    .fleet-stat.orange .fleet-stat-value { color:var(--orange); }
+    .fleet-stat.red .fleet-stat-value { color:var(--red); }
+
+    /* VEHICLE LIST */
+    .vehicle-list { flex:1; overflow-y:auto; }
+    .vehicle-item {
+      display:flex; align-items:center; gap:10px; padding:12px 16px;
+      border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.15s;
+    }
+    .vehicle-item:hover { background:var(--surface2); }
+    .vehicle-item.selected { background:var(--orange-dim); border-left:2px solid var(--orange); }
+    .vehicle-status-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .status-healthy { background:var(--green); }
+    .status-warning { background:var(--yellow); }
+    .status-critical { background:var(--red); animation:blink 1s infinite; }
+    .status-in_workshop { background:var(--blue); }
+    .vehicle-info { flex:1; min-width:0; }
+    .vehicle-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .vehicle-plate { font-family:var(--mono); font-size:10px; color:var(--muted); }
+    .vehicle-right { text-align:right; flex-shrink:0; }
+    .vehicle-score { font-family:var(--mono); font-size:13px; font-weight:700; }
+    .vehicle-speed { font-size:11px; color:var(--muted); margin-top:2px; }
+
+    /* ALERTS STRIP */
+    .alerts-strip {
+      border-top:1px solid var(--border); max-height:200px; overflow-y:auto; flex-shrink:0;
+    }
+    .alert-strip-title { padding:8px 16px; font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:0.08em; border-bottom:1px solid var(--border); }
+    .alert-strip-item {
+      display:flex; align-items:center; gap:8px; padding:9px 16px;
+      border-bottom:1px solid rgba(35,35,47,0.5); font-size:12px;
+    }
+    .alert-strip-item .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+    /* MAP */
+    .map-area { flex:1; position:relative; }
+    #map { width:100%; height:100%; }
+
+    /* VEHICLE DETAIL PANEL */
+    .detail-panel {
+      position:absolute; top:16px; right:16px; width:280px;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:12px; overflow:hidden; display:none;
+      box-shadow:0 20px 60px rgba(0,0,0,0.5);
+    }
+    .detail-panel.visible { display:block; }
+    .detail-header {
+      padding:14px 16px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .detail-title { font-size:14px; font-weight:700; }
+    .detail-close { cursor:pointer; color:var(--muted); font-size:18px; line-height:1; }
+    .detail-body { padding:14px 16px; }
+    .detail-row { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid rgba(35,35,47,0.6); font-size:12px; }
+    .detail-row:last-child { border-bottom:none; }
+    .detail-key { color:var(--muted); }
+    .detail-val { font-family:var(--mono); font-weight:500; }
+    .fault-codes { margin-top:10px; }
+    .fault-code-tag { display:inline-block; background:rgba(240,80,58,0.12); color:var(--red); border:1px solid rgba(240,80,58,0.2); font-family:var(--mono); font-size:10px; padding:3px 7px; border-radius:4px; margin:3px 3px 0 0; }
+    .detail-actions { padding:12px 16px; border-top:1px solid var(--border); display:flex; gap:8px; }
+    .btn { padding:8px 14px; border-radius:7px; border:none; font-family:var(--sans); font-size:12px; font-weight:600; cursor:pointer; flex:1; transition:all 0.15s; }
+    .btn-primary { background:var(--orange); color:white; }
+    .btn-ghost { background:var(--surface2); color:var(--white); }
+
+    /* EXPORT BAR */
+    .export-bar {
+      padding:10px 16px; border-top:1px solid var(--border);
+      display:flex; align-items:center; gap:8px; flex-shrink:0;
+    }
+    .export-btn {
+      flex:1; padding:8px; border-radius:7px; border:1px solid var(--border);
+      background:transparent; color:var(--muted); font-family:var(--sans);
+      font-size:12px; cursor:pointer; transition:all 0.15s;
+    }
+    .export-btn:hover { color:var(--white); border-color:var(--muted); }
+
+    ::-webkit-scrollbar {
+      width: 3px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo-box">🚛</div>
+    <div>
+      <div class="page-title">Fleet Command</div>
+      <div class="fleet-name" id="fleetName">Loading fleet...</div>
+    </div>
+  </div>
+  <div class="topbar-left" style="gap:20px">
+    <div class="ws-indicator">
+      <div class="ws-dot" id="wsIndicator"></div>
+      <span id="wsStatus" style="color:var(--muted)">Connecting...</span>
+    </div>
+    <div style="font-family:var(--mono);font-size:11px;color:var(--muted)" id="lastUpdate">—</div>
+    <button style="background:var(--orange);color:white;border:none;padding:6px 14px;border-radius:6px;font-family:var(--sans);font-size:12px;cursor:pointer" onclick="exportReport()">📊 Export</button>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="body">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <!-- STATS -->
+    <div class="fleet-stats">
+      <div class="fleet-stat green">
+        <div class="fleet-stat-value" id="stat-healthy">—</div>
+        <div class="fleet-stat-label">Healthy</div>
+      </div>
+      <div class="fleet-stat" style"">
+        <div class="fleet-stat-value" id="stat-warning" style="color:var(--yellow)">—</div>
+        <div class="fleet-stat-label">Warning</div>
+      </div>
+      <div class="fleet-stat red">
+        <div class="fleet-stat-value" id="stat-critical">—</div>
+        <div class="fleet-stat-label">Critical</div>
+      </div>
+      <div class="fleet-stat">
+        <div class="fleet-stat-value" id="stat-total" style="color:var(--blue)">—</div>
+        <div class="fleet-stat-label">Total</div>
+      </div>
+    </div>
+
+    <!-- VEHICLE LIST -->
+    <div class="vehicle-list" id="vehicleList">
+      <div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Loading vehicles...</div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="alerts-strip">
+      <div class="alert-strip-title">ACTIVE ALERTS</div>
+      <div id="alertsStrip">
+        <div style="padding:12px 16px;color:var(--muted);font-size:12px">No active alerts</div>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="export-bar">
+      <button class="export-btn" onclick="exportReport('csv')">📄 CSV Report</button>
+      <button class="export-btn" onclick="exportReport('json')">{ } JSON</button>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="map-area">
+    <div id="map"></div>
+
+    <!-- VEHICLE DETAIL -->
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-header">
+        <div class="detail-title" id="detail-vehicle-name">Vehicle Detail</div>
+        <div class="detail-close" onclick="closeDetail()">×</div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-row"><span class="detail-key">VIN</span><span class="detail-val" id="detail-vin">—</span></div>
+        <div class="detail-row"><span class="detail-key">Status</span><span class="detail-val" id="detail-status">—</span></div>
+        <div class="detail-row"><span class="detail-key">Health Score</span><span class="detail-val" id="detail-score">—</span></div>
+        <div class="detail-row"><span class="detail-key">Speed</span><span class="detail-val" id="detail-speed">—</span></div>
+        <div class="detail-row"><span class="detail-key">Fuel</span><span class="detail-val" id="detail-fuel">—</span></div>
+        <div class="detail-row"><span class="detail-key">Odometer</span><span class="detail-val" id="detail-odometer">—</span></div>
+        <div class="detail-row"><span class="detail-key">Last Scan</span><span class="detail-val" id="detail-scan">—</span></div>
+        <div class="fault-codes" id="detail-faults" style="display:none">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px">FAULT CODES</div>
+          <div id="detail-fault-list"></div>
+        </div>
+      </div>
+      <div class="detail-actions">
+        <button class="btn btn-ghost" onclick="viewDCP()">View DCP</button>
+        <button class="btn btn-primary" onclick="bookWorkshop()">Book Service</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+const WS_URL = 'ws://localhost:8000';
+let token = localStorage.getItem('automat_token') || '';
+let fleetId = localStorage.getItem('automat_fleet_id') || '';
+let ws = null;
+let map = null;
+let markers = {};
+let vehicles = {};
+let selectedVehicleId = null;
+
+// ── MAP INIT ──────────────────────────────────────────────────
+function initMap() {
+  // Center on Ibadan
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: { lat: 7.3775, lng: 3.9470 },
+    zoom: 12,
+    mapTypeId: 'roadmap',
+    styles: [
+      { elementType:'geometry', stylers:[{color:'#1a1a24'}] },
+      { elementType:'labels.text.fill', stylers:[{color:'#6b6b80'}] },
+      { elementType:'labels.text.stroke', stylers:[{color:'#13131a'}] },
+      { featureType:'road', elementType:'geometry', stylers:[{color:'#23232f'}] },
+      { featureType:'water', elementType:'geometry', stylers:[{color:'#0c0c0f'}] },
+      { featureType:'poi', stylers:[{visibility:'off'}] },
+    ]
+  });
+}
+
+// ── WEBSOCKET ─────────────────────────────────────────────────
+function connectWebSocket() {
+  if (!fleetId || !token) return;
+
+  const wsUrl = `${WS_URL}/ws/fleet/${fleetId}?token=${token}`;
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    document.getElementById('wsIndicator').className = 'ws-dot';
+    document.getElementById('wsStatus').textContent = 'Live';
+  };
+
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    handleWebSocketMessage(data);
+  };
+
+  ws.onclose = () => {
+    document.getElementById('wsIndicator').className = 'ws-dot disconnected';
+    document.getElementById('wsStatus').textContent = 'Reconnecting...';
+    setTimeout(connectWebSocket, 5000);
+  };
+
+  ws.onerror = () => {
+    ws.close();
+  };
+}
+
+function handleWebSocketMessage(data) {
+  if (data.type === 'fleet_snapshot' || data.type === 'fleet_update') {
+    updateFleetView(data.vehicles);
+    document.getElementById('lastUpdate').textContent =
+      'Updated: ' + new Date().toLocaleTimeString();
+  } else if (data.type === 'alert') {
+    showNewAlert(data.alert);
+  } else if (data.type === 'vehicle_detail') {
+    if (selectedVehicleId === data.vehicle_id) {
+      populateDetail(data.data);
+    }
+  }
+}
+
+// ── VEHICLE LIST & MAP ────────────────────────────────────────
+function updateFleetView(vehicleList) {
+  if (!vehicleList) return;
+
+  // Update stats
+  const healthy = vehicleList.filter(v => v.status === 'healthy').length;
+  const warning = vehicleList.filter(v => v.status === 'warning').length;
+  const critical = vehicleList.filter(v => v.status === 'critical').length;
+  document.getElementById('stat-healthy').textContent = healthy;
+  document.getElementById('stat-warning').textContent = warning;
+  document.getElementById('stat-critical').textContent = critical;
+  document.getElementById('stat-total').textContent = vehicleList.length;
+
+  // Update vehicle list
+  const listEl = document.getElementById('vehicleList');
+  listEl.innerHTML = vehicleList.map(v => {
+    vehicles[v.vehicle_id] = v;
+    const scoreColor = v.health_score >= 80 ? '#22d07a' : v.health_score >= 60 ? '#f0c03a' : '#f0503a';
+    return `
+      <div class="vehicle-item ${selectedVehicleId === v.vehicle_id ? 'selected' : ''}"
+           onclick="selectVehicle('${v.vehicle_id}')">
+        <div class="vehicle-status-dot status-${v.status}"></div>
+        <div class="vehicle-info">
+          <div class="vehicle-name">${v.make} ${v.model}</div>
+          <div class="vehicle-plate">${v.plate_number || v.vin?.slice(-6)}</div>
+        </div>
+        <div class="vehicle-right">
+          <div class="vehicle-score" style="color:${scoreColor}">${v.health_score || '--'}</div>
+          <div class="vehicle-speed">${v.speed_kmh ? v.speed_kmh.toFixed(0) + ' km/h' : 'Parked'}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Update map markers
+  vehicleList.forEach(v => {
+    if (!v.lat || !v.lng) return;
+    updateMarker(v);
+  });
+}
+
+function updateMarker(vehicle) {
+  const pos = { lat: vehicle.lat, lng: vehicle.lng };
+  const color = vehicle.status === 'healthy' ? '#22d07a' : vehicle.status === 'critical' ? '#f0503a' : '#f0c03a';
+
+  if (markers[vehicle.vehicle_id]) {
+    markers[vehicle.vehicle_id].setPosition(pos);
+  } else {
+    const marker = new google.maps.Marker({
+      position: pos,
+      map: map,
+      title: `${vehicle.make} ${vehicle.model}`,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        fillColor: color,
+        fillOpacity: 1,
+        strokeColor: '#0c0c0f',
+        strokeWeight: 2,
+        scale: 8
+      }
+    });
+    marker.addListener('click', () => selectVehicle(vehicle.vehicle_id));
+    markers[vehicle.vehicle_id] = marker;
+  }
+
+  // Update marker color
+  const icon = markers[vehicle.vehicle_id].getIcon();
+  icon.fillColor = color;
+  markers[vehicle.vehicle_id].setIcon(icon);
+}
+
+function selectVehicle(vehicleId) {
+  selectedVehicleId = vehicleId;
+  const v = vehicles[vehicleId];
+  if (!v) return;
+
+  // Update list selection
+  document.querySelectorAll('.vehicle-item').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.vehicle-item').forEach(el => {
+    if (el.getAttribute('onclick')?.includes(vehicleId)) el.classList.add('selected');
+  });
+
+  // Pan map
+  if (v.lat && v.lng && map) {
+    map.panTo({ lat: v.lat, lng: v.lng });
+  }
+
+  // Show detail
+  populateDetail(v);
+
+  // Request detailed data via WebSocket
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ action: 'focus', vehicle_id: vehicleId }));
+  }
+}
+
+function populateDetail(v) {
+  document.getElementById('detailPanel').classList.add('visible');
+  document.getElementById('detail-vehicle-name').textContent = `${v.make || ''} ${v.model || ''}`.trim();
+  document.getElementById('detail-vin').textContent = v.vin || '—';
+  document.getElementById('detail-status').textContent = (v.status || '—').toUpperCase();
+  document.getElementById('detail-score').textContent = v.health_score ? `${v.health_score}/100` : '—';
+  document.getElementById('detail-speed').textContent = v.speed_kmh ? `${v.speed_kmh.toFixed(1)} km/h` : 'Parked';
+  document.getElementById('detail-fuel').textContent = v.fuel_level ? `${v.fuel_level.toFixed(0)}%` : '—';
+  document.getElementById('detail-odometer').textContent = v.odometer_km ? `${v.odometer_km.toLocaleString()} km` : '—';
+  document.getElementById('detail-scan').textContent = v.last_seen ? new Date(v.last_seen).toLocaleTimeString() : '—';
+
+  const faults = v.active_faults || [];
+  if (faults.length) {
+    document.getElementById('detail-faults').style.display = 'block';
+    document.getElementById('detail-fault-list').innerHTML = faults.map(f =>
+      `<span class="fault-code-tag">${f}</span>`
+    ).join('');
+  } else {
+    document.getElementById('detail-faults').style.display = 'none';
+  }
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('visible');
+  selectedVehicleId = null;
+}
+
+function viewDCP() {
+  const v = vehicles[selectedVehicleId];
+  if (v) window.open(`/verify/${v.latest_dcp_id || ''}`, '_blank');
+}
+
+function bookWorkshop() {
+  alert('Workshop booking — open a service request in the app or call support.');
+}
+
+function showNewAlert(alert) {
+  const strip = document.getElementById('alertsStrip');
+  const color = alert.severity === 'critical' ? '#f0503a' : alert.severity === 'warning' ? '#f0c03a' : '#3a8ff0';
+  const item = document.createElement('div');
+  item.className = 'alert-strip-item';
+  item.innerHTML = `
+    <div class="dot" style="background:${color}"></div>
+    <div>${alert.title} — ${alert.vehicle_id}</div>
+  `;
+  strip.insertBefore(item, strip.firstChild);
+}
+
+async function exportReport(format = 'csv') {
+  const token = localStorage.getItem('automat_token');
+  const url = `${API}/fleet/report/export?format=${format}&days=30${fleetId ? '&fleet_id='+fleetId : ''}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `fleet_report.${format}`;
+  a.click();
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  if (!token) {
+    token = prompt('Your JWT token:') || '';
+    localStorage.setItem('automat_token', token);
+  }
+  if (!fleetId) {
+    fleetId = prompt('Fleet ID (e.g. FLT-XXXXXXXX):') || '';
+    localStorage.setItem('automat_fleet_id', fleetId);
+  }
+  document.getElementById('fleetName').textContent = `Fleet: ${fleetId}`;
+  connectWebSocket();
+});
+</script>
+</body>
+</html>

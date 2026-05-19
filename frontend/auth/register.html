@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Create Account — The Automat Hub</title>
+  <link rel="stylesheet" href="../shared/styles.css"/>
+  <style>
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+    .auth-wrap{width:100%;max-width:480px}
+    .auth-logo{text-align:center;margin-bottom:28px}
+    .auth-logo-box{width:48px;height:48px;background:var(--orange);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px}
+    .auth-title{font-size:24px;font-weight:800;margin-bottom:6px}
+    .auth-sub{font-size:13px;color:var(--muted)}
+    .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px}
+    .auth-footer{text-align:center;margin-top:20px;font-size:13px;color:var(--muted)}
+    .auth-footer a{color:var(--orange)}
+    .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+    .role-option{
+      padding:14px;border-radius:10px;border:1px solid var(--border);
+      background:transparent;cursor:pointer;transition:all 0.15s;text-align:center;
+    }
+    .role-option:hover{border-color:var(--orange)}
+    .role-option.selected{border-color:var(--orange);background:var(--orange-dim)}
+    .role-option .ro-icon{font-size:24px;margin-bottom:6px}
+    .role-option .ro-name{font-size:13px;font-weight:700;color:var(--white)}
+    .role-option .ro-desc{font-size:11px;color:var(--muted);margin-top:2px}
+    .role-option .ro-price{font-family:var(--mono);font-size:10px;color:var(--orange);margin-top:4px}
+  </style>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-logo">
+    <div class="auth-logo-box">🚗</div>
+    <div class="auth-title">Create Your Account</div>
+    <div class="auth-sub">Join Africa's vehicle trust protocol</div>
+  </div>
+
+  <div class="auth-card">
+    <div id="errorMsg" style="display:none" class="alert alert-error"></div>
+    <div id="successMsg" style="display:none" class="alert alert-success"></div>
+
+    <!-- STEP 1: Choose Role -->
+    <div id="step1">
+      <div class="label" style="margin-bottom:12px">Choose Your Account Type</div>
+      <div class="role-grid">
+        <div class="role-option" onclick="selectRole('private_owner', this)">
+          <div class="ro-icon">🚗</div>
+          <div class="ro-name">Private Owner</div>
+          <div class="ro-desc">Buy & track vehicles</div>
+          <div class="ro-price">₦15,000/month</div>
+        </div>
+        <div class="role-option" onclick="selectRole('fleet_owner', this)">
+          <div class="ro-icon">🚛</div>
+          <div class="ro-name">Fleet Owner</div>
+          <div class="ro-desc">Manage vehicle fleet</div>
+          <div class="ro-price">₦8,000/vehicle</div>
+        </div>
+        <div class="role-option" onclick="selectRole('reseller', this)">
+          <div class="ro-icon">🏪</div>
+          <div class="ro-name">Dealer / Reseller</div>
+          <div class="ro-desc">License DCP protocol</div>
+          <div class="ro-price">₦50,000/month</div>
+        </div>
+        <div class="role-option" onclick="selectRole('mechanic', this)">
+          <div class="ro-icon">🔧</div>
+          <div class="ro-name">Workshop Partner</div>
+          <div class="ro-desc">Receive repair jobs</div>
+          <div class="ro-price">Free · 8% commission</div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="goToStep2()" id="step1Btn" disabled>Continue →</button>
+    </div>
+
+    <!-- STEP 2: Details -->
+    <div id="step2" style="display:none">
+      <button onclick="goToStep1()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;margin-bottom:16px;padding:0">← Back</button>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input type="text" id="fullName" placeholder="Oloruntoba Anate"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone *</label>
+          <input type="tel" id="phone" placeholder="+2348012345678"/>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email Address *</label>
+        <input type="email" id="email" placeholder="you@example.com"/>
+      </div>
+
+      <div class="form-group" id="companyGroup" style="display:none">
+        <label class="form-label">Company / Business Name</label>
+        <input type="text" id="companyName" placeholder="Your company name"/>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Password *</label>
+          <input type="password" id="password" placeholder="Min 8 characters"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm Password *</label>
+          <input type="password" id="confirmPassword" placeholder="Repeat password"/>
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:20px;font-size:12px;color:var(--muted)">
+        🎉 <strong style="color:var(--white)">7-day free trial included.</strong> No card required to start. Full access to your dashboard immediately.
+      </div>
+
+      <button class="btn btn-primary btn-full btn-lg" id="registerBtn" onclick="doRegister()">
+        Create Account — Start Free Trial
+      </button>
+    </div>
+  </div>
+
+  <div class="auth-footer">
+    Already have an account? <a href="login.html">Sign in</a>
+  </div>
+  <div class="auth-footer" style="margin-top:8px">
+    <a href="../index.html" style="color:var(--muted)">← Back to homepage</a>
+  </div>
+</div>
+
+<script>
+  let selectedRole = '';
+
+  // Pre-select role from URL param
+  const params = new URLSearchParams(window.location.search);
+  const roleParam = params.get('role');
+  if (roleParam) {
+    setTimeout(() => {
+      const el = document.querySelector(`[onclick*="${roleParam}"]`);
+      if (el) el.click();
+    }, 100);
+  }
+
+  function selectRole(role, el) {
+    selectedRole = role;
+    document.querySelectorAll('.role-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('step1Btn').disabled = false;
+
+    // Show company field for business roles
+    const bizRoles = ['fleet_owner', 'reseller', 'mechanic'];
+    document.getElementById('companyGroup').style.display = bizRoles.includes(role) ? 'block' : 'none';
+  }
+
+  function goToStep2() {
+    if (!selectedRole) return;
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'block';
+  }
+
+  function goToStep1() {
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step1').style.display = 'block';
+    document.getElementById('errorMsg').style.display = 'none';
+  }
+
+  async function doRegister() {
+    const fullName = document.getElementById('fullName').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const companyName = document.getElementById('companyName').value.trim();
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const btn = document.getElementById('registerBtn');
+    const err = document.getElementById('errorMsg');
+
+    err.style.display = 'none';
+
+    if (!fullName || !phone || !email || !password) {
+      err.textContent = 'Please fill in all required fields.';
+      err.style.display = 'flex'; return;
+    }
+    if (password !== confirmPassword) {
+      err.textContent = 'Passwords do not match.';
+      err.style.display = 'flex'; return;
+    }
+    if (password.length < 8) {
+      err.textContent = 'Password must be at least 8 characters.';
+      err.style.display = 'flex'; return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = UI.spinner(18) + ' Creating account...';
+
+    try {
+      const data = await API.post('/auth/register', {
+        full_name: fullName,
+        phone,
+        email,
+        password,
+        role: selectedRole,
+        company_name: companyName || null
+      });
+
+      if (data?.success && data.access_token) {
+        Auth.saveLogin(data.access_token, data.user);
+        UI.toast('Account created! Welcome to The Automat Hub.', 'success');
+        setTimeout(() => Auth.routeByRole(), 1000);
+      } else {
+        err.textContent = data?.detail || 'Registration failed. Please try again.';
+        err.style.display = 'flex';
+        btn.disabled = false;
+        btn.innerHTML = 'Create Account — Start Free Trial';
+      }
+    } catch (e) {
+      err.textContent = 'Connection failed. Check your internet and try again.';
+      err.style.display = 'flex';
+      btn.disabled = false;
+      btn.innerHTML = 'Create Account — Start Free Trial';
+    }
+  }
+</script>
+</body>
+</html>

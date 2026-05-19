@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In — The Automat Hub</title>
+  <link rel="stylesheet" href="../shared/styles.css"/>
+  <style>
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+    .auth-wrap{width:100%;max-width:420px}
+    .auth-logo{text-align:center;margin-bottom:32px}
+    .auth-logo-box{width:48px;height:48px;background:var(--orange);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px}
+    .auth-title{font-size:24px;font-weight:800;margin-bottom:6px}
+    .auth-sub{font-size:13px;color:var(--muted)}
+    .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px}
+    .divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:12px}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+    .auth-footer{text-align:center;margin-top:20px;font-size:13px;color:var(--muted)}
+    .auth-footer a{color:var(--orange)}
+    .forgot-link{font-size:12px;color:var(--muted);text-align:right;display:block;margin-top:4px}
+    .forgot-link:hover{color:var(--orange)}
+    .role-chips{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px}
+    .role-chip{
+      padding:10px 8px;border-radius:8px;border:1px solid var(--border);
+      background:transparent;color:var(--muted);font-size:11px;font-weight:600;
+      cursor:pointer;transition:all 0.15s;text-align:center;
+    }
+    .role-chip:hover{border-color:var(--orange);color:var(--white)}
+    .role-chip.selected{border-color:var(--orange);background:var(--orange-dim);color:var(--orange)}
+    .role-chip .chip-icon{font-size:18px;display:block;margin-bottom:4px}
+  </style>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-logo">
+    <div class="auth-logo-box">🚗</div>
+    <div class="auth-title">Welcome Back</div>
+    <div class="auth-sub">Sign in to The Automat Hub</div>
+  </div>
+
+  <div class="auth-card">
+    <div id="errorMsg" style="display:none" class="alert alert-error"></div>
+
+    <div class="form-group">
+      <label class="form-label">Email Address</label>
+      <input type="email" id="email" placeholder="you@example.com" autocomplete="email"/>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
+      <a href="forgot-password.html" class="forgot-link">Forgot password?</a>
+    </div>
+
+    <button class="btn btn-primary btn-full btn-lg" id="loginBtn" onclick="doLogin()">
+      Sign In
+    </button>
+
+    <div class="divider">or continue as</div>
+
+    <div class="role-chips">
+      <div class="role-chip" onclick="quickLogin('inspector')"><span class="chip-icon">🔍</span>Inspector</div>
+      <div class="role-chip" onclick="quickLogin('admin')"><span class="chip-icon">⚙️</span>Admin</div>
+      <div class="role-chip" onclick="quickLogin('mechanic')"><span class="chip-icon">🔧</span>Mechanic</div>
+    </div>
+  </div>
+
+  <div class="auth-footer">
+    Don't have an account? <a href="register.html">Create one free</a>
+  </div>
+  <div class="auth-footer" style="margin-top:8px">
+    <a href="../index.html" style="color:var(--muted)">← Back to homepage</a>
+  </div>
+</div>
+
+<script src="/frontend/shared/config.js"></script>
+<script>
+  // Redirect if session exists
+  if (Auth.isLoggedIn()) Auth.routeByRole();
+
+  async function doLogin() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('loginBtn');
+    const err = document.getElementById('errorMsg');
+
+    if (!email || !password) {
+      err.textContent = 'Please enter your email and password.';
+      err.style.display = 'flex';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = UI.spinner(18) + ' Signing in...';
+    err.style.display = 'none';
+
+    try {
+      const data = await API.post('/auth/login', { email, password });
+
+      if (data?.success && data.access_token) {
+        Auth.saveLogin(data.access_token, data.user);
+        UI.toast('Welcome back, ' + data.user.full_name + '!', 'success');
+        setTimeout(() => Auth.routeByRole(), 800);
+      } else {
+        err.textContent = data?.detail || 'Invalid email or password.';
+        err.style.display = 'flex';
+        btn.disabled = false;
+        btn.innerHTML = 'Sign In';
+      }
+    } catch (e) {
+      err.textContent = 'Connection failed. Please try again.';
+      err.style.display = 'flex';
+      btn.disabled = false;
+      btn.innerHTML = 'Sign In';
+    }
+  }
+
+  function quickLogin(role) {
+    const demos = {
+      inspector: '',
+      admin: '', // Updated verified admin email
+      mechanic: '',
+    };
+    document.getElementById('email').value = demos[role] || '';
+    document.getElementById('password').focus();
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>

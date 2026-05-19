@@ -1,0 +1,3602 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Automat Hub — Trust Protocol Platform</title>
+  <meta name="description"
+    content="Nigeria's Vehicle Trust Infrastructure. Digital Condition Passport, Verified Escrow, Fleet Intelligence.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+   DESIGN SYSTEM
+═══════════════════════════════════════════════════════════ */
+    :root {
+      --c-bg: #060A0F;
+      --c-surface: #0C1420;
+      --c-surface2: #111D2E;
+      --c-border: rgba(255, 255, 255, .07);
+      --c-border2: rgba(255, 255, 255, .12);
+      --c-orange: #E88309;
+      --c-orange2: #FF9D1A;
+      --c-orange-glow: rgba(232, 131, 9, .15);
+      --c-navy: #003366;
+      --c-blue: #1A4A8C;
+      --c-text: #EEF2F8;
+      --c-text2: #8A9BB5;
+      --c-text3: #4A5A72;
+      --c-green: #00D68F;
+      --c-green-bg: rgba(0, 214, 143, .08);
+      --c-red: #FF4757;
+      --c-red-bg: rgba(255, 71, 87, .08);
+      --c-amber: #FFB830;
+      --f-display: 'Bebas Neue', sans-serif;
+      --f-body: 'Outfit', sans-serif;
+      --f-mono: 'JetBrains Mono', monospace;
+      --r: 8px;
+      --r-lg: 14px;
+      --trans: 200ms ease;
+      --glow-orange: 0 0 40px rgba(232, 131, 9, .25);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 14px;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--f-body);
+      background: var(--c-bg);
+      color: var(--c-text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      cursor: default;
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--c-bg);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--c-border2);
+      border-radius: 2px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+   THREE.JS CANVAS LAYER
+═══════════════════════════════════════════════════════════ */
+    #three-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: .55;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+   AUTH GATE
+═══════════════════════════════════════════════════════════ */
+    #auth-gate {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--c-bg);
+    }
+
+    .auth-shell {
+      width: 440px;
+      max-width: 95vw;
+      background: var(--c-surface);
+      border: 1px solid var(--c-border2);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      box-shadow: 0 0 80px rgba(0, 0, 0, .6), var(--glow-orange);
+    }
+
+    .auth-top {
+      padding: 32px 32px 0;
+    }
+
+    .auth-wordmark {
+      font-family: var(--f-display);
+      font-size: 2.2rem;
+      letter-spacing: .04em;
+      color: var(--c-text);
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+
+    .auth-wordmark span {
+      color: var(--c-orange);
+    }
+
+    .auth-tagline {
+      font-size: .75rem;
+      color: var(--c-text2);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 11px;
+      text-align: center;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--c-text3);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all var(--trans);
+    }
+
+    .auth-tab.active {
+      color: var(--c-orange);
+      border-color: var(--c-orange);
+    }
+
+    .auth-body {
+      padding: 24px 32px 32px;
+    }
+
+    .auth-form {
+      display: none;
+      flex-direction: column;
+      gap: 13px;
+    }
+
+    .auth-form.active {
+      display: flex;
+    }
+
+    /* FORM ELEMENTS */
+    .fg {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .fg-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      font-size: .73rem;
+      font-weight: 600;
+      color: var(--c-text2);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    input,
+    select,
+    textarea {
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid var(--c-border2);
+      border-radius: var(--r);
+      padding: 9px 12px;
+      font-size: .85rem;
+      font-family: var(--f-body);
+      color: var(--c-text);
+      outline: none;
+      transition: border-color var(--trans);
+      width: 100%;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--c-orange);
+    }
+
+    input::placeholder {
+      color: var(--c-text3);
+    }
+
+    select option {
+      background: var(--c-surface2);
+    }
+
+    /* BUTTONS */
+    .btn {
+      padding: 10px 18px;
+      border-radius: var(--r);
+      font-family: var(--f-body);
+      font-size: .85rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: all var(--trans);
+      white-space: nowrap;
+      letter-spacing: .02em;
+    }
+
+    .btn-orange {
+      background: var(--c-orange);
+      color: #fff;
+    }
+
+    .btn-orange:hover {
+      background: var(--c-orange2);
+      box-shadow: var(--glow-orange);
+    }
+
+    .btn-orange:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--c-text2);
+      border: 1px solid var(--c-border2);
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--c-orange);
+      color: var(--c-orange);
+    }
+
+    .btn-danger {
+      background: rgba(255, 71, 87, .1);
+      color: var(--c-red);
+      border: 1px solid rgba(255, 71, 87, .2);
+    }
+
+    .btn-danger:hover {
+      background: var(--c-red);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: .75rem;
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    .btn .spin {
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(255, 255, 255, .2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .5s linear infinite;
+      display: none;
+    }
+
+    .btn.loading .spin {
+      display: block;
+    }
+
+    .btn.loading .bt {
+      display: none;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ALERT */
+    .alert {
+      padding: 10px 13px;
+      border-radius: var(--r);
+      font-size: .8rem;
+      display: none;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .alert.show {
+      display: flex;
+    }
+
+    .alert-err {
+      background: var(--c-red-bg);
+      color: var(--c-red);
+      border: 1px solid rgba(255, 71, 87, .2);
+    }
+
+    .alert-ok {
+      background: var(--c-green-bg);
+      color: var(--c-green);
+      border: 1px solid rgba(0, 214, 143, .2);
+    }
+
+    .alert-info {
+      background: var(--c-orange-glow);
+      color: var(--c-orange);
+      border: 1px solid rgba(232, 131, 9, .2);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+   MAIN APP SHELL
+═══════════════════════════════════════════════════════════ */
+    #app {
+      display: none;
+      height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 230px;
+      background: var(--c-surface);
+      border-right: 1px solid var(--c-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 20;
+      overflow-y: auto;
+    }
+
+    .sidebar-logo {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .logo-text {
+      font-family: var(--f-display);
+      font-size: 1.1rem;
+      letter-spacing: .06em;
+      color: var(--c-text);
+      line-height: 1;
+    }
+
+    .logo-text span {
+      color: var(--c-orange);
+    }
+
+    .logo-sub {
+      font-size: .65rem;
+      color: var(--c-text3);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .sidebar-user {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--c-border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .u-av {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--c-orange) 0%, #FF6B00 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: .78rem;
+      flex-shrink: 0;
+      color: #fff;
+    }
+
+    .u-name {
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--c-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .u-role {
+      font-size: .65rem;
+      color: var(--c-text3);
+      text-transform: capitalize;
+    }
+
+    .nav-grp {
+      padding: 8px 0;
+    }
+
+    .nav-lbl {
+      padding: 4px 20px 4px;
+      font-size: .62rem;
+      color: var(--c-text3);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-weight: 700;
+    }
+
+    .ni {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 20px;
+      color: var(--c-text3);
+      font-size: .78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--trans);
+      border-left: 2px solid transparent;
+      position: relative;
+    }
+
+    .ni:hover {
+      color: var(--c-text);
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .ni.active {
+      color: var(--c-orange);
+      background: var(--c-orange-glow);
+      border-left-color: var(--c-orange);
+    }
+
+    .ni svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    .ni-badge {
+      margin-left: auto;
+      background: var(--c-red);
+      color: #fff;
+      font-size: .62rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 8px;
+      font-family: var(--f-mono);
+    }
+
+    .sidebar-bottom {
+      margin-top: auto;
+      padding: 14px 20px;
+      border-top: 1px solid var(--c-border);
+    }
+
+    .logout-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .75rem;
+      color: var(--c-text3);
+      cursor: pointer;
+      transition: color var(--trans);
+    }
+
+    .logout-btn:hover {
+      color: var(--c-red);
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: fixed;
+      left: 230px;
+      right: 0;
+      top: 0;
+      height: 52px;
+      background: rgba(12, 20, 32, .9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--c-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 15;
+    }
+
+    .tb-title {
+      font-family: var(--f-display);
+      font-size: 1.1rem;
+      letter-spacing: .06em;
+      color: var(--c-text);
+    }
+
+    .tb-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: .72rem;
+      font-weight: 600;
+      background: var(--c-green-bg);
+      color: var(--c-green);
+      border: 1px solid rgba(0, 214, 143, .15);
+    }
+
+    .pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .3
+      }
+    }
+
+    .ib {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--r);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--c-text3);
+      cursor: pointer;
+      transition: all var(--trans);
+    }
+
+    .ib:hover {
+      background: rgba(255, 255, 255, .06);
+      color: var(--c-text);
+    }
+
+    /* CONTENT AREA */
+    .content {
+      margin-left: 230px;
+      padding-top: 52px;
+      min-height: 100vh;
+    }
+
+    .page {
+      display: none;
+      padding: 24px;
+      animation: fadeUp .25s ease;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+   COMPONENTS
+═══════════════════════════════════════════════════════════ */
+
+    /* SECTION EYEBROW */
+    .eyebrow {
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--c-orange);
+      margin-bottom: 4px;
+    }
+
+    /* STAT CARDS */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-lg);
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+      transition: transform var(--trans), border-color var(--trans);
+    }
+
+    .stat::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--c-orange);
+    }
+
+    .stat.green::before {
+      background: var(--c-green);
+    }
+
+    .stat.red::before {
+      background: var(--c-red);
+    }
+
+    .stat.blue::before {
+      background: var(--c-blue);
+    }
+
+    .stat:hover {
+      transform: translateY(-2px);
+      border-color: var(--c-border2);
+    }
+
+    .stat-label {
+      font-size: .68rem;
+      color: var(--c-text3);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 700;
+    }
+
+    .stat-val {
+      font-family: var(--f-display);
+      font-size: 2.2rem;
+      letter-spacing: .03em;
+      color: var(--c-text);
+      line-height: 1.1;
+      margin: 4px 0 2px;
+    }
+
+    .stat-meta {
+      font-size: .7rem;
+      color: var(--c-text3);
+    }
+
+    /* CARD */
+    .card {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-lg);
+      padding: 20px;
+      transition: border-color var(--trans);
+    }
+
+    .card:hover {
+      border-color: var(--c-border2);
+    }
+
+    .card-hdr {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .card-title {
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--c-text);
+    }
+
+    .card-sub {
+      font-size: .72rem;
+      color: var(--c-text3);
+      margin-top: 2px;
+    }
+
+    /* GRID */
+    .g2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .g3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+    }
+
+    .g2-1 {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+    }
+
+    .g1-2 {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 960px) {
+
+      .g2,
+      .g3,
+      .g2-1,
+      .g1-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* BADGE */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+
+    .b-green {
+      background: var(--c-green-bg);
+      color: var(--c-green);
+      border: 1px solid rgba(0, 214, 143, .15);
+    }
+
+    .b-orange {
+      background: var(--c-orange-glow);
+      color: var(--c-orange);
+      border: 1px solid rgba(232, 131, 9, .2);
+    }
+
+    .b-red {
+      background: var(--c-red-bg);
+      color: var(--c-red);
+      border: 1px solid rgba(255, 71, 87, .2);
+    }
+
+    .b-amber {
+      background: rgba(255, 184, 48, .08);
+      color: var(--c-amber);
+      border: 1px solid rgba(255, 184, 48, .2);
+    }
+
+    .b-slate {
+      background: rgba(255, 255, 255, .05);
+      color: var(--c-text3);
+      border: 1px solid var(--c-border);
+    }
+
+    .b-blue {
+      background: rgba(26, 74, 140, .2);
+      color: #5B9EFF;
+      border: 1px solid rgba(26, 74, 140, .3);
+    }
+
+    /* TABLE */
+    .tw {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--c-text3);
+      background: rgba(255, 255, 255, .02);
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    td {
+      padding: 10px 12px;
+      font-size: .8rem;
+      color: var(--c-text);
+      border-bottom: 1px solid var(--c-border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, .02);
+    }
+
+    .mono {
+      font-family: var(--f-mono);
+      font-size: .72rem;
+      color: var(--c-text3);
+    }
+
+    /* HASH BLOCK */
+    .hash-block {
+      background: rgba(0, 0, 0, .4);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r);
+      padding: 12px 14px;
+      font-family: var(--f-mono);
+      font-size: .7rem;
+      color: var(--c-orange);
+      word-break: break-all;
+      line-height: 1.7;
+      position: relative;
+    }
+
+    .hash-lbl {
+      font-size: .6rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--c-text3);
+      margin-bottom: 4px;
+    }
+
+    /* HEALTH BAR */
+    .hbar {
+      height: 4px;
+      background: rgba(255, 255, 255, .07);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .hfill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width .6s ease;
+    }
+
+    .hfill.hi {
+      background: var(--c-green);
+    }
+
+    .hfill.mid {
+      background: var(--c-amber);
+    }
+
+    .hfill.lo {
+      background: var(--c-red);
+    }
+
+    /* VEHICLE STATUS */
+    .vs {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .75rem;
+      font-weight: 600;
+    }
+
+    .vs::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .vs.healthy::before {
+      background: var(--c-green);
+      box-shadow: 0 0 6px var(--c-green);
+    }
+
+    .vs.warning::before {
+      background: var(--c-amber);
+      animation: pulse 1.5s infinite;
+    }
+
+    .vs.critical::before {
+      background: var(--c-red);
+      animation: pulse 1s infinite;
+    }
+
+    .vs.in_workshop::before {
+      background: var(--c-blue);
+    }
+
+    /* SCORE RING */
+    .score-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 0;
+    }
+
+    .score-ring {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .score-ring svg {
+      transform: rotate(-90deg);
+    }
+
+    .snum {
+      position: absolute;
+      font-family: var(--f-display);
+      font-size: 1.8rem;
+      letter-spacing: .02em;
+      color: var(--c-text);
+    }
+
+    .sgrade {
+      position: absolute;
+      bottom: 16px;
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    /* TIMELINE */
+    .tl {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .tl-item {
+      display: flex;
+      gap: 12px;
+      padding-bottom: 18px;
+      position: relative;
+    }
+
+    .tl-item:last-child {
+      padding-bottom: 0;
+    }
+
+    .tl-item:last-child .tl-line {
+      display: none;
+    }
+
+    .tl-ico {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+
+    .tl-ico.done {
+      background: var(--c-green-bg);
+      color: var(--c-green);
+      border: 1px solid rgba(0, 214, 143, .2);
+    }
+
+    .tl-ico.active {
+      background: var(--c-orange-glow);
+      color: var(--c-orange);
+      border: 1px solid rgba(232, 131, 9, .2);
+    }
+
+    .tl-ico.pend {
+      background: rgba(255, 255, 255, .04);
+      color: var(--c-text3);
+      border: 1px solid var(--c-border);
+    }
+
+    .tl-line {
+      position: absolute;
+      left: 13px;
+      top: 28px;
+      bottom: 0;
+      width: 1px;
+      background: var(--c-border);
+    }
+
+    .tl-body {
+      padding-top: 3px;
+    }
+
+    .tl-title {
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--c-text);
+    }
+
+    .tl-desc {
+      font-size: .72rem;
+      color: var(--c-text3);
+      margin-top: 2px;
+    }
+
+    /* FAULT CHIP */
+    .fc {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--c-red-bg);
+      color: var(--c-red);
+      font-family: var(--f-mono);
+      font-size: .68rem;
+      border: 1px solid rgba(255, 71, 87, .2);
+    }
+
+    /* TOAST */
+    #toasts {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border2);
+      border-radius: var(--r);
+      padding: 12px 16px;
+      min-width: 270px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .4);
+      animation: tslide .2s ease;
+      font-size: .8rem;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .toast.ok {
+      border-left: 3px solid var(--c-green);
+    }
+
+    .toast.err {
+      border-left: 3px solid var(--c-red);
+    }
+
+    .toast.info {
+      border-left: 3px solid var(--c-orange);
+    }
+
+    @keyframes tslide {
+      from {
+        opacity: 0;
+        transform: translateX(16px);
+      }
+    }
+
+    .toast-t {
+      font-weight: 700;
+      color: var(--c-text);
+      margin-bottom: 2px;
+    }
+
+    .toast-b {
+      color: var(--c-text3);
+    }
+
+    /* MODAL */
+    .modal-bg {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+
+    .modal-bg.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border2);
+      border-radius: var(--r-lg);
+      width: 100%;
+      max-width: 540px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 80px rgba(0, 0, 0, .5);
+    }
+
+    .modal-hdr {
+      padding: 20px 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-family: var(--f-display);
+      font-size: 1.2rem;
+      letter-spacing: .04em;
+      color: var(--c-text);
+    }
+
+    .modal-x {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--c-text3);
+      cursor: pointer;
+      transition: all var(--trans);
+    }
+
+    .modal-x:hover {
+      background: var(--c-red-bg);
+      color: var(--c-red);
+    }
+
+    .modal-body {
+      padding: 20px 24px 24px;
+    }
+
+    /* SKELETON */
+    .sk {
+      background: linear-gradient(90deg, rgba(255, 255, 255, .04) 25%, rgba(255, 255, 255, .08) 50%, rgba(255, 255, 255, .04) 75%);
+      background-size: 200%;
+      animation: sk 1.6s infinite;
+      border-radius: 4px;
+    }
+
+    @keyframes sk {
+      to {
+        background-position: -200%;
+      }
+    }
+
+    /* VIN OWNERSHIP CARD */
+    .vin-card {
+      background: linear-gradient(135deg, var(--c-surface2) 0%, rgba(0, 51, 102, .2) 100%);
+      border: 1px solid var(--c-border2);
+      border-radius: var(--r-lg);
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .vin-card::after {
+      content: attr(data-vin);
+      position: absolute;
+      right: -8px;
+      bottom: -12px;
+      font-family: var(--f-mono);
+      font-size: 4rem;
+      color: rgba(255, 255, 255, .03);
+      font-weight: 900;
+      white-space: nowrap;
+      pointer-events: none;
+      letter-spacing: .02em;
+    }
+
+    .vin-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+    }
+
+    /* PLAN CARDS */
+    .plan-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 14px;
+    }
+
+    .plan-card {
+      background: var(--c-surface2);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-lg);
+      padding: 20px;
+      cursor: pointer;
+      transition: all var(--trans);
+      position: relative;
+    }
+
+    .plan-card:hover {
+      border-color: var(--c-orange);
+      box-shadow: var(--glow-orange);
+    }
+
+    .plan-card.featured {
+      border-color: rgba(232, 131, 9, .4);
+    }
+
+    .plan-name {
+      font-family: var(--f-display);
+      font-size: 1rem;
+      letter-spacing: .04em;
+      color: var(--c-text);
+      margin-bottom: 6px;
+    }
+
+    .plan-price {
+      font-family: var(--f-display);
+      font-size: 1.6rem;
+      letter-spacing: .03em;
+      color: var(--c-orange);
+    }
+
+    .plan-price small {
+      font-size: .7rem;
+      color: var(--c-text3);
+      font-family: var(--f-body);
+      font-weight: 400;
+    }
+
+    .plan-features {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .pf {
+      font-size: .75rem;
+      color: var(--c-text2);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pf::before {
+      content: '✓';
+      color: var(--c-green);
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .plan-top-badge {
+      position: absolute;
+      top: -9px;
+      right: 12px;
+      padding: 2px 8px;
+      background: var(--c-orange);
+      color: #fff;
+      font-size: .62rem;
+      font-weight: 800;
+      border-radius: 8px;
+      letter-spacing: .06em;
+    }
+
+    /* 3D VEHICLE VIEWER CONTAINER */
+    #dcp-3d-canvas {
+      width: 100%;
+      height: 220px;
+      border-radius: var(--r);
+      overflow: hidden;
+      background: rgba(0, 0, 0, .3);
+      border: 1px solid var(--c-border);
+    }
+
+    /* MAP PLACEHOLDER */
+    .map-area {
+      height: 280px;
+      border-radius: var(--r);
+      overflow: hidden;
+      position: relative;
+      background: var(--c-surface2);
+      border: 1px solid var(--c-border);
+    }
+
+    .map-grid {
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0, 51, 102, .15) 39px, rgba(0, 51, 102, .15) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0, 51, 102, .15) 39px, rgba(0, 51, 102, .15) 40px);
+    }
+
+    .map-glow {
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(232, 131, 9, .12) 0%, transparent 70%);
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translate(40px, 60px)
+      }
+
+      50% {
+        transform: translate(120px, 40px)
+      }
+    }
+
+    .map-dot {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--c-orange);
+    }
+
+    .map-dot::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 1px solid var(--c-orange);
+      animation: ping 2s ease-out infinite;
+    }
+
+    @keyframes ping {
+      0% {
+        transform: scale(1);
+        opacity: .8
+      }
+
+      100% {
+        transform: scale(2.5);
+        opacity: 0
+      }
+    }
+
+    /* DIVIDER */
+    .div {
+      height: 1px;
+      background: var(--c-border);
+      margin: 16px 0;
+    }
+
+    .sec-label {
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--c-orange);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .sec-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--c-border);
+    }
+
+    /* VEHICLE PASSPORT CARD — the QR/NFC public face */
+    .passport-card {
+      background: linear-gradient(145deg, #0C1420 0%, #001830 100%);
+      border: 1px solid rgba(232, 131, 9, .3);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 0 40px rgba(232, 131, 9, .08), inset 0 1px 0 rgba(255, 255, 255, .05);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .passport-card::before {
+      content: 'DCP';
+      position: absolute;
+      right: -20px;
+      top: -10px;
+      font-family: var(--f-display);
+      font-size: 8rem;
+      letter-spacing: .1em;
+      color: rgba(232, 131, 9, .04);
+      pointer-events: none;
+      line-height: 1;
+    }
+
+    .passport-vin {
+      font-family: var(--f-mono);
+      font-size: .8rem;
+      color: var(--c-orange);
+      letter-spacing: .1em;
+    }
+
+    .passport-car {
+      font-family: var(--f-display);
+      font-size: 1.6rem;
+      letter-spacing: .04em;
+      color: var(--c-text);
+      margin: 4px 0;
+      line-height: 1.2;
+    }
+
+    .passport-score {
+      font-family: var(--f-display);
+      font-size: 3.5rem;
+      color: var(--c-green);
+      letter-spacing: .02em;
+      line-height: 1;
+    }
+
+    /* LINKING OVERVIEW DIAGRAM */
+    .arch-diagram {
+      background: var(--c-surface2);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-lg);
+      padding: 20px;
+    }
+
+    .arch-node {
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r);
+      padding: 12px 14px;
+      text-align: center;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--c-text2);
+      transition: all var(--trans);
+      cursor: default;
+    }
+
+    .arch-node:hover {
+      border-color: var(--c-orange);
+      color: var(--c-orange);
+      background: var(--c-orange-glow);
+    }
+
+    .arch-node.center {
+      border-color: rgba(232, 131, 9, .4);
+      color: var(--c-orange);
+      background: var(--c-orange-glow);
+      font-size: .85rem;
+    }
+
+    .arch-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--c-text3);
+      font-size: .65rem;
+      gap: 4px;
+    }
+
+    /* EMPTY STATE */
+    .empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 36px 20px;
+      text-align: center;
+    }
+
+    .empty h3 {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--c-text2);
+      margin-bottom: 4px;
+    }
+
+    .empty p {
+      font-size: .75rem;
+      color: var(--c-text3);
+    }
+
+    /* SEARCH BAR */
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r);
+      padding: 8px 12px;
+      transition: border-color var(--trans);
+    }
+
+    .search-bar:focus-within {
+      border-color: var(--c-orange);
+    }
+
+    .search-bar input {
+      background: none;
+      border: none;
+      flex: 1;
+      font-size: .82rem;
+      color: var(--c-text);
+      outline: none;
+      font-family: var(--f-body);
+    }
+
+    .search-bar svg {
+      color: var(--c-text3);
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- THREE.JS CANVAS -->
+  <canvas id="three-canvas"></canvas>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toasts"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+     AUTH GATE
+═══════════════════════════════════════════════════════════ -->
+  <div id="auth-gate">
+    <div class="auth-shell">
+      <div class="auth-top">
+        <div class="auth-wordmark">The Automat <span>Hub</span></div>
+        <div class="auth-tagline">Nigeria's Vehicle Trust Protocol</div>
+        <div class="auth-tabs">
+          <div class="auth-tab active" onclick="authTab('login')">Sign In</div>
+          <div class="auth-tab" onclick="authTab('register')">Create Account</div>
+        </div>
+      </div>
+      <div class="auth-body">
+
+        <!-- LOGIN -->
+        <form class="auth-form active" id="f-login" onsubmit="doLogin(event)">
+          <div id="login-err" class="alert alert-err"></div>
+          <div class="fg"><label>Email</label><input type="email" id="l-email" placeholder="you@example.com" required>
+          </div>
+          <div class="fg"><label>Password</label><input type="password" id="l-pw" placeholder="••••••••" required></div>
+          <button class="btn btn-orange btn-block" id="login-btn" type="submit">
+            <div class="spin"></div><span class="bt">Sign In to Protocol</span>
+          </button>
+          <button type="button" class="btn btn-ghost btn-block btn-sm" onclick="openModal('forgot-modal')">Forgot
+            password?</button>
+        </form>
+
+        <!-- REGISTER -->
+        <form class="auth-form" id="f-register" onsubmit="doRegister(event)">
+          <div id="reg-err" class="alert alert-err"></div>
+          <div class="fg-row">
+            <div class="fg"><label>Full Name</label><input type="text" id="r-name" placeholder="Oloruntoba Anate"
+                required></div>
+            <div class="fg"><label>Phone</label><input type="tel" id="r-phone" placeholder="+234 814 126 9872" required>
+            </div>
+          </div>
+          <div class="fg"><label>Email</label><input type="email" id="r-email" required></div>
+          <div class="fg"><label>Password (8+ chars)</label><input type="password" id="r-pw" required></div>
+          <div class="fg-row">
+            <div class="fg">
+              <label>Account Type</label>
+              <select id="r-role">
+                <option value="private_owner">Private Owner</option>
+                <option value="fleet_owner">Fleet Owner</option>
+                <option value="reseller">Dealer / Reseller</option>
+                <option value="mechanic">Mechanic</option>
+              </select>
+            </div>
+            <div class="fg"><label>Company (optional)</label><input type="text" id="r-co" placeholder="Company name">
+            </div>
+          </div>
+          <button class="btn btn-orange btn-block" id="reg-btn" type="submit">
+            <div class="spin"></div><span class="bt">Create Account</span>
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════════════════════ -->
+  <div id="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-text">AUTOMAT <span>HUB</span></div>
+        <div class="logo-sub">Trust Protocol Platform</div>
+      </div>
+      <div class="sidebar-user">
+        <div class="u-av" id="s-av">O</div>
+        <div>
+          <div class="u-name" id="s-name">Loading</div>
+          <div class="u-role" id="s-role">owner</div>
+        </div>
+      </div>
+
+      <nav class="nav-grp">
+        <div class="nav-lbl">Overview</div>
+        <div class="ni active" onclick="go('dashboard')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+          </svg>
+          Dashboard
+        </div>
+      </nav>
+
+      <nav class="nav-grp">
+        <div class="nav-lbl">Vehicle Linking</div>
+        <div class="ni" onclick="go('my-vehicles')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="1" y="3" width="15" height="13" />
+            <path d="M16 8h4l3 3v3h-7V8z" />
+            <circle cx="5.5" cy="18.5" r="2.5" />
+            <circle cx="18.5" cy="18.5" r="2.5" />
+          </svg>
+          My Vehicles
+        </div>
+        <div class="ni" onclick="go('link-vehicle')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+          Link Vehicle
+        </div>
+      </nav>
+
+      <nav class="nav-grp">
+        <div class="nav-lbl">DCP Protocol</div>
+        <div class="ni" onclick="go('dcp-issue')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14,2 14,8 20,8" />
+          </svg>
+          Issue DCP
+        </div>
+        <div class="ni" onclick="go('dcp-verify')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22,4 12,14.01 9,11.01" />
+          </svg>
+          Verify / Scan
+        </div>
+      </nav>
+
+      <nav class="nav-grp">
+        <div class="nav-lbl">Escrow</div>
+        <div class="ni" onclick="go('escrow-new')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z" />
+          </svg>
+          New Escrow
+        </div>
+        <div class="ni" onclick="go('escrow-track')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" />
+          </svg>
+          Track Escrow
+        </div>
+      </nav>
+
+      <nav class="nav-grp" id="fleet-grp">
+        <div class="nav-lbl">Fleet</div>
+        <div class="ni" onclick="go('fleet')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          Fleet Portal
+          <span class="ni-badge" id="fleet-alert-badge" style="display:none">0</span>
+        </div>
+        <div class="ni" onclick="go('fleet-tracking')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+          Live Tracking
+        </div>
+      </nav>
+
+      <nav class="nav-grp">
+        <div class="nav-lbl">Operations</div>
+        <div class="ni" onclick="go('workshop')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path
+              d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+          </svg>
+          Workshop
+        </div>
+      </nav>
+
+      <nav class="nav-grp" id="reseller-grp" style="display:none">
+        <div class="nav-lbl">API Access</div>
+        <div class="ni" onclick="go('reseller')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="16,18 22,12 16,6" />
+            <polyline points="8,6 2,12 8,18" />
+          </svg>
+          API Console
+        </div>
+      </nav>
+
+      <nav class="nav-grp" id="admin-grp" style="display:none">
+        <div class="nav-lbl">Administration</div>
+        <div class="ni" onclick="go('admin')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          Platform Admin
+        </div>
+      </nav>
+
+      <nav class="nav-grp">
+        <div class="nav-lbl">Account</div>
+        <div class="ni" onclick="go('subscription')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          Subscription
+        </div>
+        <div class="ni" onclick="go('profile')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          Profile
+        </div>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="logout-btn" onclick="doLogout()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16,17 21,12 16,7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          Sign Out
+        </div>
+      </div>
+    </aside>
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="tb-title" id="page-title">Dashboard</div>
+      <div class="tb-right">
+        <div class="status-pill">
+          <div class="pulse"></div><span id="sub-pill">Free Trial</span>
+        </div>
+        <div class="ib" onclick="reload()" title="Refresh">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="23,4 23,10 17,10" />
+            <polyline points="1,20 1,14 7,14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- ── DASHBOARD ──────────────────────────────────── -->
+      <div class="page active" id="pg-dashboard">
+        <div class="eyebrow">Overview</div>
+        <div class="stats-row" id="dash-stats">
+          <div class="stat">
+            <div class="stat-label">Total DCPs</div>
+            <div class="stat-val sk" style="height:2.4rem;width:80px">&nbsp;</div>
+          </div>
+          <div class="stat green">
+            <div class="stat-label">Vehicles Linked</div>
+            <div class="stat-val sk" style="height:2.4rem;width:60px">&nbsp;</div>
+          </div>
+          <div class="stat blue">
+            <div class="stat-label">Escrow Volume</div>
+            <div class="stat-val sk" style="height:2.4rem;width:100px">&nbsp;</div>
+          </div>
+          <div class="stat red">
+            <div class="stat-label">Active Alerts</div>
+            <div class="stat-val sk" style="height:2.4rem;width:60px">&nbsp;</div>
+          </div>
+        </div>
+
+        <div class="g2-1">
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="card-title">Vehicle Ownership Network</div>
+                <div class="card-sub">How VINs link to users, fleets, DCPs, and escrow</div>
+              </div>
+            </div>
+            <div class="arch-diagram">
+              <div
+                style="display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:auto auto auto;gap:10px;align-items:center">
+                <div class="arch-node" onclick="go('dcp-issue')">Inspector<br><small
+                    style="color:var(--c-text3);font-size:.65rem">Issues DCP</small></div>
+                <div class="arch-arrow" style="flex-direction:column">
+                  <svg width="16" height="30" viewBox="0 0 16 30">
+                    <path d="M8 0 L8 25 M3 20 L8 28 L13 20" stroke="currentColor" stroke-width="1.5" fill="none"
+                      opacity=".4" />
+                  </svg>
+                </div>
+                <div class="arch-node" onclick="go('reseller')">Reseller API<br><small
+                    style="color:var(--c-text3);font-size:.65rem">Licensed Dealer</small></div>
+
+                <div class="arch-node" onclick="go('dcp-verify')">SHA-256<br><small
+                    style="color:var(--c-text3);font-size:.65rem">Hash Ledger</small></div>
+                <div class="arch-node center" style="grid-row:1/4;grid-column:2/3;align-self:center">VIN<br><span
+                    style="font-family:var(--f-display);font-size:1.4rem;letter-spacing:.04em">PASSPORT</span><br><small
+                    style="color:var(--c-text3);font-size:.62rem">Central Anchor</small></div>
+                <div class="arch-node" onclick="go('my-vehicles')">Private Owner<br><small
+                    style="color:var(--c-text3);font-size:.65rem">1 to 4 vehicles</small></div>
+
+                <div class="arch-node" onclick="go('escrow-new')">Escrow Layer<br><small
+                    style="color:var(--c-text3);font-size:.65rem">Buyer protection</small></div>
+                <div></div>
+                <div class="arch-node" onclick="go('fleet')">Fleet Portal<br><small
+                    style="color:var(--c-text3);font-size:.65rem">5+ vehicles</small></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="card">
+              <div class="card-hdr">
+                <div class="card-title">Your Subscription</div>
+              </div>
+              <div id="dash-sub"></div>
+              <button class="btn btn-orange btn-block btn-sm" style="margin-top:12px"
+                onclick="go('subscription')">Manage Plan</button>
+            </div>
+            <div class="card">
+              <div class="card-hdr">
+                <div class="card-title">Quick Actions</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <button class="btn btn-ghost btn-block btn-sm" onclick="go('link-vehicle')">+ Link New Vehicle</button>
+                <button class="btn btn-ghost btn-block btn-sm" onclick="go('dcp-issue')">+ Issue DCP</button>
+                <button class="btn btn-ghost btn-block btn-sm" onclick="go('escrow-new')">+ Create Escrow</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px" class="card">
+          <div class="card-hdr">
+            <div>
+              <div class="card-title">Recent DCPs</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="go('dcp-issue')">Issue New</button>
+          </div>
+          <div class="tw">
+            <table>
+              <thead>
+                <tr>
+                  <th>VIN</th>
+                  <th>Vehicle</th>
+                  <th>Score</th>
+                  <th>Grade</th>
+                  <th>Status</th>
+                  <th>Issued</th>
+                </tr>
+              </thead>
+              <tbody id="dash-dcp-table">
+                <tr>
+                  <td colspan="6">
+                    <div class="empty">
+                      <p>No DCPs yet</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MY VEHICLES (Ownership Hub) ───────────────── -->
+      <div class="page" id="pg-my-vehicles">
+        <div class="eyebrow">Vehicle Ownership</div>
+        <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <h2 style="font-family:var(--f-display);font-size:1.4rem;letter-spacing:.04em;color:var(--c-text)">My
+              Vehicles</h2>
+            <p style="font-size:.78rem;color:var(--c-text3);margin-top:2px">Every vehicle you own, linked to your DCP,
+              subscription, and escrow history</p>
+          </div>
+          <button class="btn btn-orange btn-sm" onclick="go('link-vehicle')">+ Link Vehicle</button>
+        </div>
+        <div id="my-vehicles-list"
+          style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">
+          <div class="empty card">
+            <h3>No vehicles linked</h3>
+            <p>Link your first vehicle to start DCP monitoring</p><button class="btn btn-orange btn-sm"
+              style="margin-top:12px" onclick="go('link-vehicle')">Link Vehicle</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── LINK VEHICLE ───────────────────────────────── -->
+      <div class="page" id="pg-link-vehicle">
+        <div class="eyebrow">Vehicle Linking</div>
+        <h2
+          style="font-family:var(--f-display);font-size:1.4rem;letter-spacing:.04em;color:var(--c-text);margin-bottom:16px">
+          Link a Vehicle to Your Account</h2>
+
+        <div class="g2">
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="card-title">Register Vehicle</div>
+                <div class="card-sub">Links VIN to your user profile, fleet, DCP, and subscription</div>
+              </div>
+            </div>
+            <div id="link-alert" class="alert"></div>
+            <form onsubmit="doLinkVehicle(event)" style="display:flex;flex-direction:column;gap:13px">
+              <div class="fg-row">
+                <div class="fg"><label>VIN Number</label><input type="text" id="lv-vin" placeholder="SALYT2EX8NA329745"
+                    required style="text-transform:uppercase;font-family:var(--f-mono)"></div>
+                <div class="fg"><label>Plate Number</label><input type="text" id="lv-plate" placeholder="OY-123-ABC"
+                    required style="text-transform:uppercase"></div>
+              </div>
+              <div class="fg-row">
+                <div class="fg"><label>Make</label><input type="text" id="lv-make" placeholder="Range Rover" required>
+                </div>
+                <div class="fg"><label>Model</label><input type="text" id="lv-model" placeholder="Velar S" required>
+                </div>
+              </div>
+              <div class="fg-row">
+                <div class="fg"><label>Year</label><input type="number" id="lv-year" placeholder="2022" min="1990"
+                    max="2030" required></div>
+                <div class="fg"><label>Colour</label><input type="text" id="lv-colour" placeholder="Indus Silver"></div>
+              </div>
+              <div class="fg">
+                <label>Link To (who owns this vehicle)</label>
+                <select id="lv-link-type">
+                  <option value="personal">My Personal Account</option>
+                  <option value="fleet">My Fleet</option>
+                </select>
+              </div>
+              <div class="fg" id="fleet-id-row" style="display:none">
+                <label>Fleet ID</label>
+                <input type="text" id="lv-fleet-id" placeholder="FLT-XXXXXXXX" style="font-family:var(--f-mono)">
+              </div>
+              <div class="fg">
+                <label>OBD Connection Method</label>
+                <select id="lv-obd">
+                  <option value="obd_hardware">OBD-II Hardware Dongle</option>
+                  <option value="nfc_scan">NFC Tag Scan</option>
+                  <option value="manufacturer_api">Manufacturer API</option>
+                  <option value="manual">Manual Entry</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-orange btn-block" id="link-btn">
+                <div class="spin"></div><span class="bt">Link Vehicle to Account</span>
+              </button>
+            </form>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:14px">How Vehicle Linking Works</div>
+              <div class="tl">
+                <div class="tl-item">
+                  <div class="tl-ico done"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="3">
+                      <polyline points="20,6 9,17 4,12" />
+                    </svg></div>
+                  <div class="tl-line"></div>
+                  <div class="tl-body">
+                    <div class="tl-title">VIN Registered</div>
+                    <div class="tl-desc">VIN linked to your user ID, role, and subscription slot</div>
+                  </div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-ico done"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="3">
+                      <polyline points="20,6 9,17 4,12" />
+                    </svg></div>
+                  <div class="tl-line"></div>
+                  <div class="tl-body">
+                    <div class="tl-title">OBD Monitoring Active</div>
+                    <div class="tl-desc">Hourly scans begin. Health score tracked in real time.</div>
+                  </div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-ico active"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2.5">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14,2 14,8 20,8" />
+                    </svg></div>
+                  <div class="tl-line"></div>
+                  <div class="tl-body">
+                    <div class="tl-title">DCP Issued on Inspection</div>
+                    <div class="tl-desc">Inspector attaches the Digital Condition Passport to this VIN</div>
+                  </div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-ico pend"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2.5">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg></div>
+                  <div class="tl-line"></div>
+                  <div class="tl-body">
+                    <div class="tl-title">Escrow Available</div>
+                    <div class="tl-desc">Once DCP is issued, vehicle can be sold through verified escrow</div>
+                  </div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-ico pend"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2.5">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                    </svg></div>
+                  <div class="tl-body">
+                    <div class="tl-title">Ownership Transfers</div>
+                    <div class="tl-desc">On sale, vehicle re-links to new owner. Full history preserved on the hash
+                      ledger.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="background:var(--c-orange-glow);border-color:rgba(232,131,9,.2)">
+              <div class="card-title" style="color:var(--c-orange);margin-bottom:8px">Loophole-Free Architecture</div>
+              <div style="display:flex;flex-direction:column;gap:7px;font-size:.75rem;color:var(--c-text2)">
+                <div>• VIN is globally unique — one vehicle, one hash, one ownership record</div>
+                <div>• SHA-256 hash anchored at import — odometer rollback is instantly detected</div>
+                <div>• NFC tag embedded at inspection — buyer scans at point of sale to verify nothing changed</div>
+                <div>• Every mechanic repair logged — warranty void if unapproved shop is used</div>
+                <div>• Escrow only releases when DCP hash matches physical vehicle</div>
+                <div>• All verification attempts logged — builds Dealer Reputation Graph automatically</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DCP ISSUE ──────────────────────────────────── -->
+      <div class="page" id="pg-dcp-issue">
+        <div class="eyebrow">Digital Condition Passport</div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="card-title">Issue New DCP</div>
+                <div class="card-sub">150-point inspection — SHA-256 hashed to public ledger</div>
+              </div>
+            </div>
+            <div id="dcp-alert" class="alert"></div>
+            <form onsubmit="doIssueDCP(event)" style="display:flex;flex-direction:column;gap:12px">
+              <div class="fg-row">
+                <div class="fg"><label>VIN</label><input type="text" id="d-vin" placeholder="SALYT2EX8NA329745" required
+                    style="text-transform:uppercase;font-family:var(--f-mono)"></div>
+                <div class="fg"><label>Year</label><input type="number" id="d-year" placeholder="2022" min="1990"
+                    max="2030" required></div>
+              </div>
+              <div class="fg-row">
+                <div class="fg"><label>Make</label><input type="text" id="d-make" placeholder="Range Rover" required>
+                </div>
+                <div class="fg"><label>Model</label><input type="text" id="d-model" placeholder="Velar S" required>
+                </div>
+              </div>
+              <div class="fg-row">
+                <div class="fg"><label>Colour</label><input type="text" id="d-colour" placeholder="Indus Silver"></div>
+                <div class="fg"><label>Odometer (km)</label><input type="number" id="d-odo" placeholder="45000"></div>
+              </div>
+
+              <div class="sec-label">Inspection Module Scores (0 to 100)</div>
+              <div class="fg-row">
+                <div class="fg"><label>Mechanical Systems</label><input type="number" id="m1" placeholder="85" min="0"
+                    max="100" required></div>
+                <div class="fg"><label>Electrical and Controls</label><input type="number" id="m2" placeholder="90"
+                    min="0" max="100" required></div>
+              </div>
+              <div class="fg-row">
+                <div class="fg"><label>Structural Integrity</label><input type="number" id="m3" placeholder="88" min="0"
+                    max="100" required></div>
+                <div class="fg"><label>Maintenance Compliance</label><input type="number" id="m4" placeholder="76"
+                    min="0" max="100" required></div>
+              </div>
+              <div class="fg-row">
+                <div class="fg"><label>HSE Standards</label><input type="number" id="m5" placeholder="92" min="0"
+                    max="100" required></div>
+                <div class="fg"><label>Operational Technology</label><input type="number" id="m6" placeholder="80"
+                    min="0" max="100" required></div>
+              </div>
+              <div class="fg"><label>Fault Codes (comma separated)</label><input type="text" id="d-faults"
+                  placeholder="P0420, P0171 or leave blank"></div>
+              <div class="fg"><label>Inspector Notes</label><textarea id="d-notes" rows="3"
+                  placeholder="Detailed inspection observations..."></textarea></div>
+
+              <button type="submit" class="btn btn-orange btn-block" id="dcp-btn">
+                <div class="spin"></div><span class="bt">Issue Digital Condition Passport</span>
+              </button>
+            </form>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <!-- 3D VEHICLE VIEWER -->
+            <div class="card">
+              <div class="card-hdr">
+                <div class="card-title">Vehicle Model</div>
+              </div>
+              <div id="dcp-3d-canvas"></div>
+              <div id="dcp-3d-label" style="text-align:center;font-size:.7rem;color:var(--c-text3);margin-top:8px">Enter
+                vehicle details to visualise</div>
+            </div>
+
+            <!-- DCP RESULT -->
+            <div class="card" id="dcp-result" style="display:none">
+              <div class="card-hdr">
+                <div>
+                  <div class="card-title">DCP Issued</div>
+                </div>
+                <span class="badge b-green">VERIFIED</span>
+              </div>
+              <div class="passport-card">
+                <div class="passport-vin" id="r-vin"></div>
+                <div class="passport-car" id="r-car"></div>
+                <div class="passport-score" id="r-score">—</div>
+                <div style="font-size:.7rem;color:var(--c-text3);margin-top:4px">Condition Score</div>
+              </div>
+              <div style="margin-top:14px">
+                <div class="hash-lbl">DCP ID</div>
+                <div class="hash-block" id="r-dcp-id" style="font-size:.78rem;margin-bottom:10px"></div>
+                <div class="hash-lbl">SHA-256 Hash</div>
+                <div class="hash-block" id="r-hash"></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <button class="btn btn-ghost btn-sm btn-block" onclick="copyHash()">Copy Hash</button>
+                <button class="btn btn-orange btn-sm btn-block" onclick="go('escrow-new')">Create Escrow</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DCP VERIFY ─────────────────────────────────── -->
+      <div class="page" id="pg-dcp-verify">
+        <div class="eyebrow">Verification</div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="card-title">Verify DCP</div>
+                <div class="card-sub">Public — no authentication needed. Scan QR or enter DCP ID.</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:13px">
+              <div id="v-alert" class="alert"></div>
+              <div class="search-bar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" id="v-input" placeholder="Enter DCP ID or VIN number"
+                  style="background:none;border:none;font-family:var(--f-mono);text-transform:uppercase">
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-orange btn-block" onclick="doVerifyDCP()">Verify DCP</button>
+                <button class="btn btn-ghost btn-block" onclick="doVINHistory()">VIN History</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="v-result" class="card" style="display:none">
+            <div class="card-hdr">
+              <div class="card-title">Verification Result</div>
+              <div id="v-badge"></div>
+            </div>
+            <div id="v-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ESCROW NEW ─────────────────────────────────── -->
+      <div class="page" id="pg-escrow-new">
+        <div class="eyebrow">Escrow and Settlement</div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="card-title">Create Escrow Deal</div>
+                <div class="card-sub">Funds held until DCP matches physical vehicle</div>
+              </div>
+            </div>
+            <div id="esc-alert" class="alert"></div>
+            <form onsubmit="doCreateEscrow(event)" style="display:flex;flex-direction:column;gap:12px">
+              <div class="fg"><label>DCP ID</label><input type="text" id="e-dcp" placeholder="DCP-XXXXXXXX" required
+                  style="font-family:var(--f-mono);text-transform:uppercase"></div>
+              <div class="fg-row">
+                <div class="fg"><label>VIN</label><input type="text" id="e-vin" placeholder="SALYT2EX8NA329745" required
+                    style="text-transform:uppercase;font-family:var(--f-mono)"></div>
+                <div class="fg"><label>Sale Amount (USD)</label><input type="number" id="e-amt" placeholder="25000"
+                    min="100" required></div>
+              </div>
+              <div class="sec-label">Buyer Details</div>
+              <div class="fg-row">
+                <div class="fg"><label>Buyer Name</label><input type="text" id="e-bn" required></div>
+                <div class="fg"><label>Buyer Email</label><input type="email" id="e-be" required></div>
+              </div>
+              <div class="fg"><label>Buyer Phone</label><input type="tel" id="e-bp" placeholder="+234 xxx xxx xxxx"
+                  required></div>
+              <div class="sec-label">Seller Details</div>
+              <div class="fg-row">
+                <div class="fg"><label>Seller Name</label><input type="text" id="e-sn" required></div>
+                <div class="fg"><label>Seller Email</label><input type="email" id="e-se" required></div>
+              </div>
+              <div class="card" style="background:var(--c-orange-glow);border-color:rgba(232,131,9,.2);padding:12px">
+                <div style="font-size:.73rem;color:var(--c-orange);font-weight:700;margin-bottom:4px">Capital Safety —
+                  Your Money is Secured</div>
+                <div style="font-size:.75rem;color:var(--c-text2)">Funds are held in the TAH escrow vault and released
+                  only when the DCP hash matches the physical vehicle. 1.5% platform fee deducted from seller proceeds
+                  on completion.</div>
+              </div>
+              <button type="submit" class="btn btn-orange btn-block" id="esc-btn">
+                <div class="spin"></div><span class="bt">Create Escrow Deal</span>
+              </button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">Escrow Flow</div>
+            </div>
+            <div class="tl">
+              <div class="tl-item">
+                <div class="tl-ico done"><span style="font-size:.68rem;font-weight:800">1</span></div>
+                <div class="tl-line"></div>
+                <div class="tl-body">
+                  <div class="tl-title">Deal Created</div>
+                  <div class="tl-desc">Escrow linked to DCP. Buyer receives Paystack payment link.</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-ico active"><span style="font-size:.68rem;font-weight:800">2</span></div>
+                <div class="tl-line"></div>
+                <div class="tl-body">
+                  <div class="tl-title">Buyer Deposits</div>
+                  <div class="tl-desc">Funds held securely. Neither party can access them.</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-ico pend"><span style="font-size:.68rem;font-weight:800">3</span></div>
+                <div class="tl-line"></div>
+                <div class="tl-body">
+                  <div class="tl-title">DCP Match Confirmed</div>
+                  <div class="tl-desc">TAH inspector verifies vehicle matches passport hash.</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-ico pend"><span style="font-size:.68rem;font-weight:800">4</span></div>
+                <div class="tl-line"></div>
+                <div class="tl-body">
+                  <div class="tl-title">Buyer Confirms Delivery</div>
+                  <div class="tl-desc">Physical receipt confirmed. All three conditions checked.</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-ico pend"><span style="font-size:.68rem;font-weight:800">5</span></div>
+                <div class="tl-body">
+                  <div class="tl-title">Funds Released</div>
+                  <div class="tl-desc">Seller receives 98.5%. Deal permanently recorded on ledger.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ESCROW TRACK ────────────────────────────────── -->
+      <div class="page" id="pg-escrow-track">
+        <div class="eyebrow">Track Escrow</div>
+        <div style="display:flex;gap:10px;margin-bottom:18px;max-width:480px">
+          <input type="text" id="esc-id-inp" placeholder="ESC-XXXXXXXX"
+            style="flex:1;font-family:var(--f-mono);text-transform:uppercase">
+          <button class="btn btn-orange" onclick="doTrackEscrow()">Track</button>
+        </div>
+        <div id="esc-track-res"></div>
+      </div>
+
+      <!-- ── FLEET PORTAL ───────────────────────────────── -->
+      <div class="page" id="pg-fleet">
+        <div class="eyebrow">Fleet Portal</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h2 style="font-family:var(--f-display);font-size:1.4rem;letter-spacing:.04em">Fleet Health Dashboard</h2>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="exportFleet()">Export CSV</button>
+            <button class="btn btn-orange btn-sm" onclick="go('link-vehicle')">Add Vehicle</button>
+          </div>
+        </div>
+        <div class="stats-row" id="fleet-stats"></div>
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-title">All Vehicles</div><button class="btn btn-ghost btn-sm"
+              onclick="loadFleet()">Refresh</button>
+          </div>
+          <div class="tw">
+            <table>
+              <thead>
+                <tr>
+                  <th>Vehicle</th>
+                  <th>VIN</th>
+                  <th>Plate</th>
+                  <th>Health</th>
+                  <th>Status</th>
+                  <th>Faults</th>
+                  <th>Last Scan</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="fleet-table"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="card-hdr">
+            <div class="card-title">Active Alerts</div><span class="badge b-red" id="alert-count">0</span>
+          </div>
+          <div id="fleet-alerts"></div>
+        </div>
+      </div>
+
+      <!-- ── FLEET TRACKING ─────────────────────────────── -->
+      <div class="page" id="pg-fleet-tracking">
+        <div class="eyebrow">Live GPS Tracking</div>
+        <div class="g2-1">
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="card-title">Fleet Map — Lagos and Ibadan Corridor</div>
+                <div class="card-sub" id="ws-status">Connecting to live feed</div>
+              </div>
+              <span class="badge b-orange" id="live-ct">0 vehicles</span>
+            </div>
+            <div class="map-area">
+              <div class="map-grid"></div>
+              <div class="map-glow"></div>
+              <div class="map-dot" style="top:40%;left:45%"></div>
+              <div class="map-dot" style="top:55%;left:62%;animation-delay:.6s"></div>
+              <div class="map-dot" style="top:35%;left:70%;animation-delay:1.2s"></div>
+              <div
+                style="position:absolute;bottom:12px;left:12px;font-size:.68rem;color:rgba(255,255,255,.3);font-family:var(--f-mono)">
+                7.3775°N 3.9470°E — Ibadan Hub</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">Live Vehicle Feed</div>
+            </div>
+            <div id="live-feed" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto">
+              <div class="empty">
+                <p>Connecting to WebSocket...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── WORKSHOP ───────────────────────────────────── -->
+      <div class="page" id="pg-workshop">
+        <div class="eyebrow">Workshop Hub</div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">Register Workshop</div>
+              <div class="card-sub">8% commission. Free to join. You earn 92% of every job.</div>
+            </div>
+            <div id="ws-alert" class="alert"></div>
+            <form onsubmit="doRegisterWorkshop(event)" style="display:flex;flex-direction:column;gap:12px">
+              <div class="fg"><label>Workshop Name</label><input type="text" id="w-name" required></div>
+              <div class="fg"><label>Address</label><input type="text" id="w-addr" required></div>
+              <div class="fg-row">
+                <div class="fg"><label>State</label><select id="w-state">
+                    <option>Oyo</option>
+                    <option>Lagos</option>
+                    <option>Abuja</option>
+                    <option>Rivers</option>
+                    <option>Kano</option>
+                  </select></div>
+                <div class="fg"><label>LGA</label><input type="text" id="w-lga" required></div>
+              </div>
+              <div class="fg-row">
+                <div class="fg"><label>Latitude</label><input type="number" id="w-lat" placeholder="7.3775"
+                    step="0.0001"></div>
+                <div class="fg"><label>Longitude</label><input type="number" id="w-lng" placeholder="3.9470"
+                    step="0.0001"></div>
+              </div>
+              <div class="fg"><label>Specializations (comma separated)</label><input type="text" id="w-spec"
+                  placeholder="Engine, Electrical, OBD, Bodywork"></div>
+              <button type="submit" class="btn btn-orange btn-block" id="ws-btn">
+                <div class="spin"></div><span class="bt">Register Workshop</span>
+              </button>
+            </form>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">Active Jobs</div>
+            </div>
+            <div id="ws-jobs">
+              <div class="empty">
+                <h3>No active jobs</h3>
+                <p>Jobs appear when fault alerts are dispatched to your workshop</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── RESELLER ───────────────────────────────────── -->
+      <div class="page" id="pg-reseller">
+        <div class="eyebrow">Reseller API</div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">API Key Management</div>
+            </div>
+            <div class="hash-lbl">Your API Key</div>
+            <div class="hash-block" id="api-key-val" style="margin-bottom:14px">No active key</div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap">
+              <button class="btn btn-orange btn-sm" onclick="genAPIKey()">Generate Key</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadAPIKey()">Check Status</button>
+              <button class="btn btn-danger btn-sm" onclick="revokeAPIKey()">Revoke</button>
+            </div>
+            <div id="api-stats" style="margin-top:14px"></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">API Pricing</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0">
+              <div
+                style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--c-border)">
+                <span style="font-size:.8rem;color:var(--c-text2)">Monthly Base</span><span
+                  style="font-weight:700;color:var(--c-orange)">NGN 50,000</span></div>
+              <div
+                style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--c-border)">
+                <span style="font-size:.8rem;color:var(--c-text2)">Per DCP Issued</span><span
+                  style="font-weight:700;color:var(--c-orange)">NGN 5,000</span></div>
+              <div
+                style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--c-border)">
+                <span style="font-size:.8rem;color:var(--c-text2)">Escrow Fee</span><span
+                  style="font-weight:700;color:var(--c-orange)">1.5%</span></div>
+              <div style="display:flex;justify-content:space-between;padding:10px 0"><span
+                  style="font-size:.8rem;color:var(--c-text2)">DCP Verification</span><span
+                  style="font-weight:700;color:var(--c-green)">Free</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ADMIN ──────────────────────────────────────── -->
+      <div class="page" id="pg-admin">
+        <div class="eyebrow">Platform Administration</div>
+        <div class="stats-row" id="admin-stats"></div>
+        <div class="g2" style="margin-top:16px">
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">Pending Workshop Approvals</div><span class="badge b-amber"
+                id="pend-ws-ct">0</span>
+            </div>
+            <div id="pend-ws"></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">Platform Revenue</div>
+            </div>
+            <div id="admin-rev"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SUBSCRIPTION ───────────────────────────────── -->
+      <div class="page" id="pg-subscription">
+        <div class="eyebrow">Subscription and Billing</div>
+        <div class="card" style="margin-bottom:16px" id="sub-cur-card">
+          <div class="card-hdr">
+            <div class="card-title">Current Plan</div>
+          </div>
+          <div id="sub-cur"></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-title">Available Plans</div>
+          </div>
+          <div id="sub-plans"></div>
+        </div>
+      </div>
+
+      <!-- ── PROFILE ────────────────────────────────────── -->
+      <div class="page" id="pg-profile">
+        <div class="eyebrow">Account</div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">Profile Details</div>
+            </div>
+            <form onsubmit="doUpdateProfile(event)" style="display:flex;flex-direction:column;gap:12px">
+              <div class="fg"><label>Full Name</label><input type="text" id="p-name"></div>
+              <div class="fg"><label>Phone</label><input type="tel" id="p-phone"></div>
+              <div class="fg"><label>Company</label><input type="text" id="p-co"></div>
+              <div class="fg-row">
+                <div class="fg"><label>Address</label><input type="text" id="p-addr"></div>
+                <div class="fg"><label>State</label><select id="p-state">
+                    <option>Oyo</option>
+                    <option>Lagos</option>
+                    <option>Abuja</option>
+                    <option>Rivers</option>
+                    <option>Kano</option>
+                  </select></div>
+              </div>
+              <button type="submit" class="btn btn-ghost btn-block">Save Changes</button>
+            </form>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">Change Password</div>
+            </div>
+            <form onsubmit="doChangePW(event)" style="display:flex;flex-direction:column;gap:12px">
+              <div id="pw-alert" class="alert"></div>
+              <div class="fg"><label>Current Password</label><input type="password" id="pw-cur"></div>
+              <div class="fg"><label>New Password</label><input type="password" id="pw-new"></div>
+              <div class="fg"><label>Confirm New</label><input type="password" id="pw-cfm"></div>
+              <button type="submit" class="btn btn-ghost btn-block">Update Password</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end content -->
+  </div><!-- end app -->
+
+  <!-- MODALS -->
+  <div class="modal-bg" id="forgot-modal">
+    <div class="modal">
+      <div class="modal-hdr">
+        <div class="modal-title">Reset Password</div>
+        <div class="modal-x" onclick="closeModal('forgot-modal')"><svg width="14" height="14" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg></div>
+      </div>
+      <div class="modal-body">
+        <div id="fp-alert" class="alert" style="margin-bottom:12px"></div>
+        <div class="fg" style="margin-bottom:12px"><label>Email</label><input type="email" id="fp-email"
+            placeholder="your@email.com"></div>
+        <button class="btn btn-orange btn-block" onclick="doForgotPW()">Send Reset Link</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="vehicle-modal">
+    <div class="modal">
+      <div class="modal-hdr">
+        <div class="modal-title" id="vm-title">Vehicle Detail</div>
+        <div class="modal-x" onclick="closeModal('vehicle-modal')"><svg width="14" height="14" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg></div>
+      </div>
+      <div class="modal-body" id="vm-body"></div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════
+    // THREE.JS BACKGROUND
+    // ═══════════════════════════════════════════════════════════
+    (function () {
+      const canvas = document.getElementById('three-canvas');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setSize(innerWidth, innerHeight);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, .1, 1000);
+      camera.position.z = 5;
+
+      // Particle field — floating data nodes
+      const geo = new THREE.BufferGeometry();
+      const N = 600;
+      const pos = new Float32Array(N * 3);
+      const vel = new Float32Array(N * 3);
+      for (let i = 0; i < N * 3; i++) {
+        pos[i] = (Math.random() - .5) * 20;
+        vel[i] = (Math.random() - .5) * .002;
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const mat = new THREE.PointsMaterial({
+        color: 0xE88309, size: .04,
+        transparent: true, opacity: .6,
+        sizeAttenuation: true
+      });
+      const particles = new THREE.Points(geo, mat);
+      scene.add(particles);
+
+      // Wireframe torus — the protocol ring
+      const torusGeo = new THREE.TorusGeometry(2.5, .008, 2, 120);
+      const torusMat = new THREE.LineBasicMaterial({ color: 0x003366, opacity: .4, transparent: true });
+      const torus = new THREE.LineSegments(
+        new THREE.EdgesGeometry(torusGeo), torusMat
+      );
+      scene.add(torus);
+
+      // Second ring offset
+      const torus2Geo = new THREE.TorusGeometry(3.5, .005, 2, 80);
+      const torus2 = new THREE.LineSegments(
+        new THREE.EdgesGeometry(torus2Geo),
+        new THREE.LineBasicMaterial({ color: 0x001F40, opacity: .25, transparent: true })
+      );
+      torus2.rotation.x = Math.PI / 4;
+      scene.add(torus2);
+
+      // Icosahedron — core hash node
+      const icoGeo = new THREE.IcosahedronGeometry(.45, 1);
+      const icoMat = new THREE.MeshBasicMaterial({
+        color: 0xE88309, wireframe: true, opacity: .15, transparent: true
+      });
+      const ico = new THREE.Mesh(icoGeo, icoMat);
+      ico.position.set(0, 0, 0);
+      scene.add(ico);
+
+      // Hash lines — connecting nodes
+      const lineMat = new THREE.LineBasicMaterial({ color: 0xE88309, opacity: .06, transparent: true });
+      for (let i = 0; i < 20; i++) {
+        const lGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3((Math.random() - .5) * 16, (Math.random() - .5) * 10, (Math.random() - .5) * 8),
+          new THREE.Vector3((Math.random() - .5) * 16, (Math.random() - .5) * 10, (Math.random() - .5) * 8)
+        ]);
+        scene.add(new THREE.Line(lGeo, lineMat));
+      }
+
+      let mx = 0, my = 0;
+      document.addEventListener('mousemove', e => {
+        mx = (e.clientX / innerWidth - .5) * .4;
+        my = (e.clientY / innerHeight - .5) * .3;
+      });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+
+      let t = 0;
+      function animate() {
+        requestAnimationFrame(animate);
+        t += .004;
+
+        // Particle drift
+        const p = geo.attributes.position.array;
+        for (let i = 0; i < N * 3; i++) {
+          p[i] += vel[i];
+          if (Math.abs(p[i]) > 10) vel[i] *= -1;
+        }
+        geo.attributes.position.needsUpdate = true;
+
+        // Rotate rings
+        torus.rotation.x = my * .5 + t * .12;
+        torus.rotation.y = mx * .5 + t * .08;
+        torus2.rotation.z = t * .05;
+        torus2.rotation.y = -t * .06;
+
+        // Pulse ico
+        ico.scale.setScalar(1 + Math.sin(t * 2) * .06);
+        ico.rotation.x = t * .3;
+        ico.rotation.y = t * .4;
+
+        // Camera parallax
+        camera.position.x += (mx - camera.position.x) * .04;
+        camera.position.y += (-my - camera.position.y) * .04;
+        camera.lookAt(0, 0, 0);
+
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      // 3D Vehicle (DCP page) — rotating wireframe representing the car
+      window.init3DVehicle = function () {
+        const c3 = document.getElementById('dcp-3d-canvas');
+        if (!c3 || c3._init) return;
+        c3._init = true;
+
+        const r3 = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        r3.setSize(c3.offsetWidth, 220);
+        r3.setClearColor(0x000000, 0);
+        c3.appendChild(r3.domElement);
+
+        const s3 = new THREE.Scene();
+        const cam3 = new THREE.PerspectiveCamera(50, c3.offsetWidth / 220, .1, 100);
+        cam3.position.set(3, 1.5, 4);
+        cam3.lookAt(0, 0, 0);
+
+        // Stylised car body from primitives
+        const bodyGeo = new THREE.BoxGeometry(2.8, .5, 1.2);
+        const roofGeo = new THREE.BoxGeometry(1.6, .45, 1.1);
+        const wMat = new THREE.MeshBasicMaterial({ color: 0xE88309, wireframe: true, opacity: .5, transparent: true });
+        const wMat2 = new THREE.MeshBasicMaterial({ color: 0x5B9EFF, wireframe: true, opacity: .3, transparent: true });
+
+        const body = new THREE.Mesh(bodyGeo, wMat);
+        const roof = new THREE.Mesh(roofGeo, wMat2);
+        roof.position.set(-.2, .48, 0);
+
+        // Wheels
+        const wheelGeo = new THREE.CylinderGeometry(.3, .3, .2, 12);
+        const ww = new THREE.MeshBasicMaterial({ color: 0x888888, wireframe: true, opacity: .35, transparent: true });
+        const wheels = [
+          [-1, -.35, .7], [-1, -.35, -.7], [1, -.35, .7], [1, -.35, -.7]
+        ].map(([x, y, z]) => {
+          const w = new THREE.Mesh(wheelGeo, ww);
+          w.rotation.x = Math.PI / 2; w.position.set(x, y, z); return w;
+        });
+
+        // Orange scan line
+        const scanGeo = new THREE.PlaneGeometry(3, .04);
+        const scanMat = new THREE.MeshBasicMaterial({ color: 0xE88309, opacity: .6, transparent: true, side: THREE.DoubleSide });
+        const scanLine = new THREE.Mesh(scanGeo, scanMat);
+
+        const group = new THREE.Group();
+        group.add(body, roof, ...wheels, scanLine);
+        s3.add(group);
+
+        // Ambient grid
+        const gridHelper = new THREE.GridHelper(8, 16, 0x003366, 0x001830);
+        gridHelper.position.y = -.65;
+        s3.add(gridHelper);
+
+        let t3 = 0;
+        function a3() {
+          requestAnimationFrame(a3);
+          t3 += .015;
+          group.rotation.y = t3 * .4;
+          scanLine.position.y = Math.sin(t3 * 1.5) * .6;
+          scanLine.material.opacity = .3 + Math.abs(Math.sin(t3 * 1.5)) * .5;
+          r3.render(s3, cam3);
+        }
+        a3();
+      };
+    })();
+
+    // ═══════════════════════════════════════════════════════════
+    // APP STATE
+    // ═══════════════════════════════════════════════════════════
+    // Point this to your Render backend URL. If running locally, it falls back to localhost.
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:8000'
+      : 'https://your-automat-api.onrender.com'; // <-- REPLACE THIS WITH YOUR RENDER URL
+    let TOKEN = localStorage.getItem('tah_token') || '';
+    let USER = JSON.parse(localStorage.getItem('tah_user') || 'null');
+    let CUR_PAGE = 'dashboard';
+    let WS = null;
+    let LAST_DCP_ID = '';
+
+    // ── API ──────────────────────────────────────────────────────
+    async function api(method, path, body = null, auth = true) {
+      const h = { 'Content-Type': 'application/json' };
+      if (auth && TOKEN) h['Authorization'] = `Bearer ${TOKEN}`;
+      try {
+        const r = await fetch(`${API_BASE}${path}`, {
+          method, headers: h, body: body ? JSON.stringify(body) : null
+        });
+        const d = await r.json();
+        if (r.status === 401) { doLogout(); return null; }
+        return { ok: r.ok, st: r.status, d };
+      } catch { return { ok: false, d: { detail: 'Network error' } }; }
+    }
+
+    async function apiq(method, path, params = {}) {
+      const url = new URL(`${API_BASE}${path}`);
+      Object.entries(params).forEach(([k, v]) => (v || v === 0) && url.searchParams.append(k, v));
+      const h = {};
+      if (TOKEN) h['Authorization'] = `Bearer ${TOKEN}`;
+      try {
+        const r = await fetch(url, { method, headers: h });
+        const d = await r.json();
+        return { ok: r.ok, st: r.status, d };
+      } catch { return { ok: false, d: { detail: 'Network error' } }; }
+    }
+
+    // ── TOAST ────────────────────────────────────────────────────
+    function toast(title, body = '', type = 'info', ms = 4200) {
+      const c = document.getElementById('toasts');
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      el.innerHTML = `<div><div class="toast-t">${title}</div>${body ? `<div class="toast-b">${body}</div>` : ''}</div>`;
+      c.appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(20px)'; el.style.transition = '.3s'; }, ms - 300);
+      setTimeout(() => el.remove(), ms);
+    }
+
+    function showAlert(id, msg, type = 'err') {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.className = `alert alert-${type} show`;
+      el.textContent = msg;
+    }
+    function hideAlert(id) {
+      const el = document.getElementById(id);
+      if (el) el.className = 'alert';
+    }
+
+    // ── AUTH ─────────────────────────────────────────────────────
+    function authTab(t) {
+      document.querySelectorAll('.auth-tab').forEach((el, i) => el.classList.toggle('active', (i === 0 && t === 'login') || (i === 1 && t === 'register')));
+      document.getElementById('f-login').classList.toggle('active', t === 'login');
+      document.getElementById('f-register').classList.toggle('active', t === 'register');
+    }
+
+    async function doLogin(e) {
+      e.preventDefault();
+      hideAlert('login-err');
+      const btn = document.getElementById('login-btn');
+      btn.classList.add('loading'); btn.disabled = true;
+      const r = await api('POST', '/auth/login', {
+        email: document.getElementById('l-email').value,
+        password: document.getElementById('l-pw').value
+      }, false);
+      btn.classList.remove('loading'); btn.disabled = false;
+      if (!r?.ok) { showAlert('login-err', r?.d?.detail || 'Login failed'); return; }
+      setSession(r.d);
+    }
+
+    async function doRegister(e) {
+      e.preventDefault();
+      hideAlert('reg-err');
+      const pw = document.getElementById('r-pw').value;
+      if (pw.length < 8) { showAlert('reg-err', 'Password must be at least 8 characters'); return; }
+      const btn = document.getElementById('reg-btn');
+      btn.classList.add('loading'); btn.disabled = true;
+      const r = await api('POST', '/auth/register', {
+        full_name: document.getElementById('r-name').value,
+        email: document.getElementById('r-email').value,
+        phone: document.getElementById('r-phone').value,
+        password: pw,
+        role: document.getElementById('r-role').value,
+        company_name: document.getElementById('r-co').value || null
+      }, false);
+      btn.classList.remove('loading'); btn.disabled = false;
+      if (!r?.ok) { showAlert('reg-err', r?.d?.detail || 'Registration failed'); return; }
+      toast('Welcome to The Automat Hub', '7-day trial started.', 'ok');
+      setSession(r.d);
+    }
+
+    function setSession(data) {
+      TOKEN = data.access_token;
+      USER = data.user;
+      localStorage.setItem('tah_token', TOKEN);
+      localStorage.setItem('tah_user', JSON.stringify(USER));
+      document.getElementById('auth-gate').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      bootApp();
+    }
+
+    function doLogout() {
+      TOKEN = ''; USER = null;
+      localStorage.removeItem('tah_token');
+      localStorage.removeItem('tah_user');
+      if (WS) { WS.close(); WS = null; }
+      document.getElementById('auth-gate').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
+    }
+
+    async function doForgotPW() {
+      const email = document.getElementById('fp-email').value;
+      if (!email) return;
+      const r = await api('POST', '/auth/forgot-password', { email }, false);
+      if (r?.ok) showAlert('fp-alert', 'If that email exists, a reset link has been sent.', 'ok');
+    }
+
+    // ── BOOT ─────────────────────────────────────────────────────
+    function bootApp() {
+      if (!USER) return;
+      document.getElementById('s-av').textContent = (USER.full_name || 'U')[0].toUpperCase();
+      document.getElementById('s-name').textContent = USER.full_name || 'User';
+      document.getElementById('s-role').textContent = (USER.role || '').replace('_', ' ');
+      document.getElementById('sub-pill').textContent = USER.subscription_plan || 'Free';
+
+      // Role-based nav
+      if (['fleet_owner', 'admin'].includes(USER.role)) document.getElementById('fleet-grp').style.display = '';
+      else document.getElementById('fleet-grp').style.display = 'none';
+      if (USER.role === 'reseller') document.getElementById('reseller-grp').style.display = '';
+      if (USER.role === 'admin') document.getElementById('admin-grp').style.display = '';
+
+      go('dashboard');
+    }
+
+    // ── NAVIGATION ───────────────────────────────────────────────
+    const PAGE_TITLES = {
+      'dashboard': 'Dashboard', 'my-vehicles': 'My Vehicles',
+      'link-vehicle': 'Link Vehicle', 'dcp-issue': 'Issue DCP',
+      'dcp-verify': 'Verify DCP', 'escrow-new': 'New Escrow',
+      'escrow-track': 'Track Escrow', 'fleet': 'Fleet Dashboard',
+      'fleet-tracking': 'Live Tracking', 'workshop': 'Workshop Hub',
+      'reseller': 'Reseller API', 'admin': 'Platform Admin',
+      'subscription': 'Subscription', 'profile': 'Profile'
+    };
+
+    function go(page) {
+      CUR_PAGE = page;
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
+      const el = document.getElementById(`pg-${page}`);
+      if (el) el.classList.add('active');
+      document.querySelectorAll('.ni').forEach(n => {
+        if (n.getAttribute('onclick')?.includes(`'${page}'`)) n.classList.add('active');
+      });
+      document.getElementById('page-title').textContent = PAGE_TITLES[page] || page;
+
+      // Page-specific load actions
+      const load = {
+        'dashboard': loadDashboard,
+        'my-vehicles': loadMyVehicles,
+        'dcp-issue': () => setTimeout(init3DVehicle, 100),
+        'fleet': loadFleet,
+        'fleet-tracking': initTracking,
+        'subscription': loadSubscription,
+        'profile': loadProfile,
+        'admin': loadAdmin,
+        'reseller': loadAPIKey
+      };
+      if (load[page]) load[page]();
+
+      // Show/hide fleet ID row on link vehicle
+      if (page === 'link-vehicle') {
+        document.getElementById('lv-link-type').addEventListener('change', function () {
+          document.getElementById('fleet-id-row').style.display = this.value === 'fleet' ? '' : 'none';
+        });
+      }
+    }
+
+    function reload() { go(CUR_PAGE); }
+
+    // ── DASHBOARD ────────────────────────────────────────────────
+    async function loadDashboard() {
+      const [dcpR, subR] = await Promise.all([
+        api('GET', '/admin/dcps?limit=5'),
+        api('GET', '/subscription/status')
+      ]);
+
+      const total = dcpR?.d?.total || 0;
+      const sub = subR?.d?.subscription;
+
+      document.getElementById('dash-stats').innerHTML = `
+    <div class="stat"><div class="stat-label">Total DCPs Issued</div><div class="stat-val">${total}</div><div class="stat-meta">On the ledger</div></div>
+    <div class="stat green"><div class="stat-label">Subscription</div><div class="stat-val" style="font-size:1.2rem;text-transform:capitalize">${sub?.plan || 'Free'}</div><div class="stat-meta">${sub?.vehicle_slots || 1} vehicle slot${sub?.vehicle_slots !== 1 ? 's' : ''}</div></div>
+    <div class="stat blue"><div class="stat-label">Days Remaining</div><div class="stat-val">${sub?.days_remaining ?? '—'}</div><div class="stat-meta">On current plan</div></div>
+    <div class="stat red"><div class="stat-label">Status</div><div class="stat-val" style="font-size:1.1rem">${sub?.is_active ? 'ACTIVE' : 'TRIAL'}</div><div class="stat-meta">${sub?.status || 'trial'}</div></div>`;
+
+      document.getElementById('dash-sub').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,.03);border-radius:var(--r);border:1px solid var(--c-border)">
+      <div>
+        <div style="font-size:.65rem;color:var(--c-text3);text-transform:uppercase;letter-spacing:.08em">Current Plan</div>
+        <div style="font-family:var(--f-display);font-size:1.2rem;letter-spacing:.04em;text-transform:capitalize">${sub?.plan || 'Free'}</div>
+        <div style="font-size:.72rem;color:var(--c-text3)">${sub?.vehicle_slots || 1} slot${sub?.vehicle_slots !== 1 ? 's' : ''} · ${sub?.days_remaining ?? 'N/A'} days</div>
+      </div>
+      <span class="badge ${sub?.is_active ? 'b-green' : 'b-amber'}">${sub?.is_active ? 'Active' : 'Trial'}</span>
+    </div>`;
+
+      const dcps = dcpR?.d?.dcps || [];
+      document.getElementById('dash-dcp-table').innerHTML = !dcps.length
+        ? '<tr><td colspan="6"><div class="empty"><p>No DCPs issued yet</p></div></td></tr>'
+        : dcps.map(d => `<tr>
+        <td class="mono">${d.vin}</td>
+        <td style="font-weight:600">${d.year} ${d.make} ${d.model}</td>
+        <td style="font-weight:700;color:var(--c-orange)">${d.score}</td>
+        <td><span class="badge b-${d.grade === 'A' ? 'green' : d.grade === 'B' ? 'blue' : 'amber'}">${d.grade}</span></td>
+        <td><span class="badge b-${d.status === 'VERIFIED' ? 'green' : 'red'}">${d.status}</span></td>
+        <td class="mono" style="font-size:.68rem">${fmt(d.issued_at)}</td>
+      </tr>`).join('');
+    }
+
+    // ── MY VEHICLES ──────────────────────────────────────────────
+    async function loadMyVehicles() {
+      const r = await api('GET', '/fleet/dashboard');
+      const vehicles = r?.d?.vehicles || [];
+      const el = document.getElementById('my-vehicles-list');
+      if (!vehicles.length) {
+        el.innerHTML = `<div class="card empty" style="grid-column:1/-1"><h3>No vehicles linked yet</h3><p>Link your first vehicle to start DCP monitoring and tracking</p><button class="btn btn-orange btn-sm" style="margin-top:12px" onclick="go('link-vehicle')">Link Vehicle</button></div>`;
+        return;
+      }
+      el.innerHTML = vehicles.map(v => {
+        const hc = v.health_score >= 80 ? 'hi' : v.health_score >= 60 ? 'mid' : 'lo';
+        return `<div class="vin-card" data-vin="${v.vin}">
+      <div class="vin-badge ${v.status === 'healthy' ? 'b-green' : v.status === 'critical' ? 'b-red' : 'b-amber'}">${v.status}</div>
+      <div style="font-family:var(--f-display);font-size:1.3rem;letter-spacing:.04em;margin-bottom:2px">${v.make} ${v.model}</div>
+      <div class="mono" style="font-size:.72rem;margin-bottom:10px">${v.vin}</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:.72rem;color:var(--c-text3)">Health Score</span>
+        <span style="font-weight:700;color:${v.health_score >= 80 ? 'var(--c-green)' : v.health_score >= 60 ? 'var(--c-amber)' : 'var(--c-red)'}">${v.health_score || 'N/A'}</span>
+      </div>
+      <div class="hbar" style="margin-bottom:10px"><div class="hfill ${hc}" style="width:${v.health_score || 0}%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--c-text3)">
+        <span>${v.plate_number}</span>
+        <span>${v.fault_count || 0} fault${v.fault_count !== 1 ? 's' : ''}</span>
+        <span>Last scan: ${v.last_scan ? fmt(v.last_scan) : 'Never'}</span>
+      </div>
+      <div style="display:flex;gap:7px;margin-top:12px">
+        <button class="btn btn-ghost btn-sm btn-block" onclick="showVehicleDetail('${v.vehicle_id}')">Details</button>
+        <button class="btn btn-orange btn-sm btn-block" onclick="go('dcp-issue')">Issue DCP</button>
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    // ── LINK VEHICLE ─────────────────────────────────────────────
+    async function doLinkVehicle(e) {
+      e.preventDefault();
+      hideAlert('link-alert');
+      const btn = document.getElementById('link-btn');
+      btn.classList.add('loading'); btn.disabled = true;
+      const r = await apiq('POST', '/fleet/vehicle/add', {
+        vin: document.getElementById('lv-vin').value.toUpperCase(),
+        make: document.getElementById('lv-make').value,
+        model: document.getElementById('lv-model').value,
+        year: document.getElementById('lv-year').value,
+        colour: document.getElementById('lv-colour').value,
+        plate_number: document.getElementById('lv-plate').value.toUpperCase(),
+        obd_connection_method: document.getElementById('lv-obd').value,
+        fleet_id: document.getElementById('lv-fleet-id').value || ''
+      });
+      btn.classList.remove('loading'); btn.disabled = false;
+      if (!r?.ok) { showAlert('link-alert', r?.d?.detail || 'Failed to link vehicle', 'err'); return; }
+      toast('Vehicle Linked', `${r.d.vin} linked. Monitoring active.`, 'ok');
+      showAlert('link-alert', `Vehicle ${r.d.vehicle_id} registered successfully.`, 'ok');
+    }
+
+    // ── DCP ISSUE ────────────────────────────────────────────────
+    async function doIssueDCP(e) {
+      e.preventDefault();
+      hideAlert('dcp-alert');
+      const faults = document.getElementById('d-faults').value.split(',').map(s => s.trim()).filter(Boolean);
+      const payload = {
+        vin: document.getElementById('d-vin').value.toUpperCase(),
+        make: document.getElementById('d-make').value,
+        model: document.getElementById('d-model').value,
+        year: parseInt(document.getElementById('d-year').value),
+        colour: document.getElementById('d-colour').value,
+        odometer_km: parseInt(document.getElementById('d-odo').value) || 0,
+        inspection_modules: {
+          mechanical_systems: parseInt(document.getElementById('m1').value),
+          electrical_controls: parseInt(document.getElementById('m2').value),
+          structural_integrity: parseInt(document.getElementById('m3').value),
+          maintenance_compliance: parseInt(document.getElementById('m4').value),
+          hse_standards: parseInt(document.getElementById('m5').value),
+          operational_technology: parseInt(document.getElementById('m6').value)
+        },
+        fault_codes: faults,
+        inspector_notes: document.getElementById('d-notes').value
+      };
+      const btn = document.getElementById('dcp-btn');
+      btn.classList.add('loading'); btn.disabled = true;
+      const r = await api('POST', '/dcp/issue', payload);
+      btn.classList.remove('loading'); btn.disabled = false;
+      if (!r?.ok) { showAlert('dcp-alert', r?.d?.detail || 'Failed to issue DCP', 'err'); return; }
+      const dcp = r.d.data;
+      LAST_DCP_ID = dcp.dcp_id;
+      showDCPResult(dcp, payload);
+      toast('DCP Issued', `${payload.vin} — Score: ${dcp.score}`, 'ok');
+    }
+
+    function showDCPResult(dcp, payload) {
+      const el = document.getElementById('dcp-result');
+      el.style.display = '';
+      document.getElementById('r-vin').textContent = payload.vin;
+      document.getElementById('r-car').textContent = `${payload.year} ${payload.make} ${payload.model}`;
+      document.getElementById('r-score').textContent = dcp.score;
+      document.getElementById('r-score').style.color = dcp.score >= 80 ? 'var(--c-green)' : dcp.score >= 60 ? 'var(--c-amber)' : 'var(--c-red)';
+      document.getElementById('r-dcp-id').textContent = dcp.dcp_id;
+      document.getElementById('r-hash').textContent = dcp.sha256_hash || dcp.hash || 'Hash generated on server';
+    }
+
+    function copyHash() {
+      const h = document.getElementById('r-hash').textContent;
+      navigator.clipboard.writeText(h).then(() => toast('Copied', 'SHA-256 hash in clipboard', 'ok'));
+    }
+
+    // ── DCP VERIFY ───────────────────────────────────────────────
+    async function doVerifyDCP() {
+      const val = document.getElementById('v-input').value.trim().toUpperCase();
+      if (!val) return;
+      const r = await api('GET', `/dcp/verify/${val}`, null, false);
+      const el = document.getElementById('v-result');
+      el.style.display = '';
+      if (!r?.ok) {
+        document.getElementById('v-badge').innerHTML = '<span class="badge b-red">NOT FOUND</span>';
+        document.getElementById('v-body').innerHTML = `<div class="alert alert-err show">${r?.d?.detail || 'DCP not found'}</div>`;
+        return;
+      }
+      const d = r.d.data;
+      const ok = d.is_verified || d.verified;
+      document.getElementById('v-badge').innerHTML = `<span class="badge ${ok ? 'b-green' : 'b-red'}">${ok ? 'VERIFIED' : 'TAMPERED'}</span>`;
+      document.getElementById('v-body').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between"><span class="mono">VIN</span><span class="mono" style="color:var(--c-text)">${d.vin || val}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-size:.78rem;color:var(--c-text3)">Vehicle</span><span style="font-weight:600">${[d.year, d.make, d.model].filter(Boolean).join(' ') || 'N/A'}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-size:.78rem;color:var(--c-text3)">Score</span><span style="font-weight:700;color:var(--c-orange)">${d.score || 'N/A'}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-size:.78rem;color:var(--c-text3)">Hash Integrity</span><span class="badge ${ok ? 'b-green' : 'b-red'}">${ok ? 'INTACT' : 'MISMATCH'}</span></div>
+      ${d.sha256_hash ? `<div class="hash-lbl" style="margin-top:8px">SHA-256</div><div class="hash-block" style="font-size:.65rem">${d.sha256_hash}</div>` : ''}
+    </div>`;
+    }
+
+    async function doVINHistory() {
+      const val = document.getElementById('v-input').value.trim().toUpperCase();
+      if (!val) return;
+      const r = await api('GET', `/dcp/vehicle/${val}`);
+      const el = document.getElementById('v-result');
+      el.style.display = '';
+      if (!r?.ok) {
+        document.getElementById('v-badge').innerHTML = '<span class="badge b-slate">NO RECORDS</span>';
+        document.getElementById('v-body').innerHTML = `<div class="alert alert-err show">No records found for ${val}</div>`;
+        return;
+      }
+      const recs = r.d.data || [];
+      document.getElementById('v-badge').innerHTML = `<span class="badge b-blue">${recs.length} Records</span>`;
+      document.getElementById('v-body').innerHTML = `<div class="tw"><table>
+    <thead><tr><th>DCP ID</th><th>Score</th><th>Grade</th><th>Issued</th></tr></thead>
+    <tbody>${recs.map(rc => `<tr><td class="mono">${rc.dcp_id}</td><td style="font-weight:700;color:var(--c-orange)">${rc.score}</td><td>${rc.grade}</td><td class="mono" style="font-size:.68rem">${fmt(rc.issued_at)}</td></tr>`).join('')}</tbody>
+  </table></div>`;
+    }
+
+    // ── ESCROW ───────────────────────────────────────────────────
+    async function doCreateEscrow(e) {
+      e.preventDefault();
+      hideAlert('esc-alert');
+      const btn = document.getElementById('esc-btn');
+      btn.classList.add('loading'); btn.disabled = true;
+      const r = await api('POST', '/escrow/create', {
+        dcp_id: document.getElementById('e-dcp').value.toUpperCase(),
+        vin: document.getElementById('e-vin').value.toUpperCase(),
+        amount_usd: parseFloat(document.getElementById('e-amt').value),
+        buyer_name: document.getElementById('e-bn').value,
+        buyer_email: document.getElementById('e-be').value,
+        buyer_phone: document.getElementById('e-bp').value,
+        seller_name: document.getElementById('e-sn').value,
+        seller_email: document.getElementById('e-se').value
+      });
+      btn.classList.remove('loading'); btn.disabled = false;
+      if (!r?.ok) { showAlert('esc-alert', r?.d?.detail || 'Failed to create escrow', 'err'); return; }
+      toast('Escrow Created', `ID: ${r.d.data?.escrow_id}. Buyer notified.`, 'ok');
+      showAlert('esc-alert', `Escrow ${r.d.data?.escrow_id} created. 1.5% platform fee applies on completion.`, 'ok');
+      document.getElementById('esc-id-inp').value = r.d.data?.escrow_id;
+    }
+
+    async function doTrackEscrow() {
+      const id = document.getElementById('esc-id-inp').value.trim().toUpperCase();
+      if (!id) return;
+      const r = await api('GET', `/escrow/${id}`);
+      const el = document.getElementById('esc-track-res');
+      if (!r?.ok) { el.innerHTML = `<div class="alert alert-err show">Escrow not found: ${id}</div>`; return; }
+      const d = r.d.data;
+      const sc = { INITIATED: 'b-amber', FUNDED: 'b-blue', DCP_MATCHED: 'b-orange', COMPLETED: 'b-green', DISPUTED: 'b-red', REFUNDED: 'b-red' };
+      el.innerHTML = `<div class="card">
+    <div class="card-hdr">
+      <div><div class="card-title mono">${d.escrow_id}</div><div class="card-sub">${d.vin}</div></div>
+      <span class="badge ${sc[d.status] || 'b-slate'}">${d.status}</span>
+    </div>
+    <div class="g2" style="margin-bottom:14px">
+      <div><div style="font-size:.65rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:3px">Buyer</div><div style="font-weight:600">${d.buyer_name}</div><div style="font-size:.72rem;color:var(--c-text3)">${d.buyer_email}</div></div>
+      <div><div style="font-size:.65rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:3px">Seller</div><div style="font-weight:600">${d.seller_name}</div><div style="font-size:.72rem;color:var(--c-text3)">${d.seller_email}</div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:12px;background:rgba(255,255,255,.03);border-radius:var(--r);margin-bottom:14px">
+      <div><div style="font-size:.65rem;color:var(--c-text3)">Sale Amount</div><div style="font-family:var(--f-display);font-size:1.3rem;letter-spacing:.03em">$${(d.amount_usd || 0).toLocaleString()}</div></div>
+      <div><div style="font-size:.65rem;color:var(--c-text3)">Platform Fee (1.5%)</div><div style="font-weight:700;color:var(--c-orange)">$${((d.amount_usd || 0) * .015).toFixed(2)}</div></div>
+      <div><div style="font-size:.65rem;color:var(--c-text3)">Seller Receives</div><div style="font-weight:700;color:var(--c-green)">$${((d.amount_usd || 0) * .985).toFixed(2)}</div></div>
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      ${d.status === 'FUNDED' ? `<button class="btn btn-orange btn-sm" onclick="escrowAction('dcp','${d.escrow_id}')">Confirm DCP Match</button>` : ''}
+      ${d.status === 'DCP_MATCHED' ? `<button class="btn btn-orange btn-sm" onclick="escrowAction('deliver','${d.escrow_id}')">Confirm Delivery</button>` : ''}
+      ${!['COMPLETED', 'REFUNDED', 'DISPUTED'].includes(d.status) ? `<button class="btn btn-danger btn-sm" onclick="escrowAction('dispute','${d.escrow_id}')">Raise Dispute</button>` : ''}
+    </div>
+  </div>`;
+    }
+
+    async function escrowAction(type, id) {
+      let r;
+      if (type === 'dcp') r = await apiq('POST', '/escrow/dcp/confirm', { escrow_id: id });
+      else if (type === 'deliver') r = await api('POST', '/escrow/delivery/confirm', { escrow_id: id, physical_delivery_confirmed: true, buyer_acknowledged: true });
+      else if (type === 'dispute') {
+        const reason = prompt('Describe the dispute:');
+        if (!reason) return;
+        r = await api('POST', '/escrow/dispute', { escrow_id: id, reason });
+      }
+      if (r?.ok) { toast('Updated', 'Escrow status updated', 'ok'); doTrackEscrow(); }
+      else toast('Error', r?.d?.detail || 'Failed', 'err');
+    }
+
+    // ── FLEET ────────────────────────────────────────────────────
+    async function loadFleet() {
+      const r = await api('GET', '/fleet/dashboard');
+      if (!r?.ok) return;
+      const s = r.d.summary;
+      document.getElementById('fleet-stats').innerHTML = `
+    <div class="stat"><div class="stat-label">Total</div><div class="stat-val">${s.total_vehicles}</div></div>
+    <div class="stat green"><div class="stat-label">Healthy</div><div class="stat-val">${s.healthy}</div></div>
+    <div class="stat"><div class="stat-label">Warning</div><div class="stat-val" style="color:var(--c-amber)">${s.warning}</div></div>
+    <div class="stat red"><div class="stat-label">Critical</div><div class="stat-val">${s.critical}</div></div>
+    <div class="stat blue"><div class="stat-label">Fleet Score</div><div class="stat-val">${s.fleet_health_score}</div><div class="stat-meta">out of 100</div></div>`;
+
+      const alerts = s.warning + s.critical;
+      const badge = document.getElementById('fleet-alert-badge');
+      badge.textContent = alerts; badge.style.display = alerts > 0 ? '' : 'none';
+
+      const tbody = document.getElementById('fleet-table');
+      if (!r.d.vehicles?.length) {
+        tbody.innerHTML = '<tr><td colspan="8"><div class="empty"><p>No vehicles in fleet. Add your first vehicle.</p></div></td></tr>';
+      } else {
+        tbody.innerHTML = r.d.vehicles.map(v => {
+          const hc = v.health_score >= 80 ? 'hi' : v.health_score >= 60 ? 'mid' : 'lo';
+          return `<tr>
+        <td style="font-weight:600">${v.make} ${v.model}</td>
+        <td class="mono">${v.vin}</td>
+        <td class="mono">${v.plate_number}</td>
+        <td style="min-width:100px">
+          <div style="display:flex;align-items:center;gap:7px">
+            <div style="flex:1"><div class="hbar"><div class="hfill ${hc}" style="width:${v.health_score || 0}%"></div></div></div>
+            <span style="font-weight:700;font-size:.75rem;color:${hc === 'hi' ? 'var(--c-green)' : hc === 'mid' ? 'var(--c-amber)' : 'var(--c-red)'}">${v.health_score || '—'}</span>
+          </div>
+        </td>
+        <td><div class="vs ${v.status}">${v.status}</div></td>
+        <td>${v.fault_count > 0 ? `<span class="badge b-red">${v.fault_count} fault${v.fault_count > 1 ? 's' : ''}</span>` : '<span class="badge b-green">Clear</span>'}</td>
+        <td class="mono" style="font-size:.68rem">${v.last_scan ? fmt(v.last_scan) : 'Never'}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="showVehicleDetail('${v.vehicle_id}')">View</button></td>
+      </tr>`;
+        }).join('');
+      }
+      loadFleetAlerts();
+    }
+
+    async function loadFleetAlerts() {
+      const r = await api('GET', '/fleet/alerts?resolved=false');
+      const alerts = r?.d?.alerts || [];
+      document.getElementById('alert-count').textContent = alerts.length;
+      document.getElementById('alert-count').className = `badge ${alerts.length ? 'b-red' : 'b-green'}`;
+      document.getElementById('fleet-alerts').innerHTML = !alerts.length
+        ? '<div class="empty" style="padding:16px"><p>No active alerts. All vehicles healthy.</p></div>'
+        : alerts.map(a => `
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--c-border)">
+        <span class="badge ${a.severity === 'critical' ? 'b-red' : a.severity === 'warning' ? 'b-amber' : 'b-blue'}">${a.severity}</span>
+        <div style="flex:1">
+          <div style="font-size:.8rem;font-weight:600">${a.title}</div>
+          <div style="font-size:.72rem;color:var(--c-text3)">${a.message}</div>
+          ${a.fault_codes?.length ? `<div style="margin-top:4px;display:flex;gap:3px;flex-wrap:wrap">${a.fault_codes.map(f => `<span class="fc">${f}</span>`).join('')}</div>` : ''}
+        </div>
+        <div class="mono" style="font-size:.65rem;color:var(--c-text3)">${fmt(a.created_at)}</div>
+      </div>`).join('');
+    }
+
+    async function showVehicleDetail(vid) {
+      const r = await api('GET', `/fleet/vehicle/${vid}/live`);
+      if (!r?.ok) return;
+      const v = r.d.vehicle;
+      const scan = r.d.latest_scan;
+      document.getElementById('vm-title').textContent = `${v.make} ${v.model} — ${v.plate_number}`;
+      document.getElementById('vm-body').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="g2">
+        <div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:2px">VIN</div><div class="mono" style="color:var(--c-text)">${v.vin}</div></div>
+        <div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:2px">Status</div><div class="vs ${v.status}">${v.status}</div></div>
+        <div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:2px">Health Score</div><div style="font-family:var(--f-display);font-size:1.8rem;color:var(--c-orange)">${v.health_score || '—'}</div></div>
+        <div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:2px">Odometer</div><div style="font-weight:600">${(v.odometer_km || 0).toLocaleString()} km</div></div>
+        <div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:2px">Fuel Level</div><div style="font-weight:600">${v.fuel_level || '—'}%</div></div>
+        <div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:2px">Speed</div><div style="font-weight:600">${v.speed_kmh || 0} km/h</div></div>
+      </div>
+      ${v.active_faults?.length ? `<div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:6px">Active Faults</div><div style="display:flex;gap:4px;flex-wrap:wrap">${v.active_faults.map(f => `<span class="fc">${f}</span>`).join('')}</div></div>` : ''}
+      ${scan ? `<div style="border-top:1px solid var(--c-border);padding-top:12px">
+        <div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:8px">Latest OBD Scan — ${fmt(scan.scanned_at)}</div>
+        <div class="g2">
+          <div><div style="font-size:.62rem;color:var(--c-text3)">Coolant Temp</div><div style="font-weight:600">${scan.coolant_temp_c || '—'}°C</div></div>
+          <div><div style="font-size:.62rem;color:var(--c-text3)">Battery</div><div style="font-weight:600">${scan.battery_voltage || '—'}V</div></div>
+          <div><div style="font-size:.62rem;color:var(--c-text3)">Engine RPM</div><div style="font-weight:600">${scan.engine_rpm || '—'}</div></div>
+          <div><div style="font-size:.62rem;color:var(--c-text3)">OBD2 Status</div><span class="badge ${scan.obd2_status === 'ok' ? 'b-green' : 'b-red'}">${scan.obd2_status || '—'}</span></div>
+        </div>
+      </div>`: ''}
+    </div>`;
+      openModal('vehicle-modal');
+    }
+
+    async function exportFleet() {
+      const r = await fetch(`${API_BASE}/fleet/report/export?format=csv`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
+      if (!r.ok) { toast('Export Failed', '', 'err'); return; }
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `automat_fleet_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      toast('Exported', 'Fleet report downloaded', 'ok');
+    }
+
+    // ── LIVE TRACKING ────────────────────────────────────────────
+    function initTracking() {
+      if (WS) WS.close();
+      const wsUrl = `${API_BASE.replace('http', 'ws')}/ws/fleet/FLT-DEFAULT?token=${TOKEN}`;
+      const status = document.getElementById('ws-status');
+      try {
+        WS = new WebSocket(wsUrl);
+        WS.onopen = () => { status.textContent = 'Live — updating every 10s'; status.style.color = 'var(--c-green)'; };
+        WS.onmessage = e => handleWS(JSON.parse(e.data));
+        WS.onclose = () => { status.textContent = 'Disconnected'; status.style.color = 'var(--c-red)'; };
+        WS.onerror = () => { status.textContent = 'WebSocket unavailable in this environment'; status.style.color = 'var(--c-amber)'; };
+      } catch { status.textContent = 'Could not connect'; }
+    }
+
+    function handleWS(msg) {
+      if (msg.type === 'fleet_snapshot' || msg.type === 'fleet_update') {
+        const vs = msg.vehicles || [];
+        document.getElementById('live-ct').textContent = `${vs.length} vehicle${vs.length !== 1 ? 's' : ''}`;
+        document.getElementById('live-feed').innerHTML = !vs.length
+          ? '<div class="empty"><p>No vehicles transmitting</p></div>'
+          : vs.map(v => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:rgba(255,255,255,.03);border-radius:var(--r);border:1px solid var(--c-border)">
+          <div><div style="font-weight:600;font-size:.78rem">${v.make} ${v.model}</div><div class="mono" style="font-size:.65rem">${v.plate_number}</div></div>
+          <div style="text-align:right">
+            <div class="vs ${v.status}" style="justify-content:flex-end;margin-bottom:2px">${v.status}</div>
+            <div style="font-size:.65rem;color:var(--c-text3)">${v.speed_kmh || 0} km/h</div>
+          </div>
+        </div>`).join('');
+      }
+      if (msg.type === 'alert') toast(`Alert: ${msg.alert?.title}`, msg.alert?.message, 'err');
+    }
+
+    // ── WORKSHOP ─────────────────────────────────────────────────
+    async function doRegisterWorkshop(e) {
+      e.preventDefault();
+      hideAlert('ws-alert');
+      const specs = document.getElementById('w-spec').value.split(',').map(s => s.trim()).filter(Boolean);
+      const btn = document.getElementById('ws-btn');
+      btn.classList.add('loading'); btn.disabled = true;
+      const r = await apiq('POST', '/workshop/register', {
+        name: document.getElementById('w-name').value,
+        address: document.getElementById('w-addr').value,
+        state: document.getElementById('w-state').value,
+        lga: document.getElementById('w-lga').value,
+        latitude: document.getElementById('w-lat').value || '7.3775',
+        longitude: document.getElementById('w-lng').value || '3.9470',
+        specializations: JSON.stringify(specs)
+      });
+      btn.classList.remove('loading'); btn.disabled = false;
+      if (!r?.ok) { showAlert('ws-alert', r?.d?.detail || 'Failed', 'err'); return; }
+      toast('Workshop Registered', 'Pending TAH approval within 48 hours.', 'ok');
+      showAlert('ws-alert', `ID: ${r.d.workshop_id} — pending approval`, 'ok');
+    }
+
+    // ── RESELLER ─────────────────────────────────────────────────
+    async function genAPIKey() {
+      const r = await api('POST', '/reseller/keys/generate');
+      if (!r?.ok) { toast('Error', r?.d?.detail || 'Failed', 'err'); return; }
+      document.getElementById('api-key-val').textContent = r.d.api_key;
+      toast('Key Generated', 'Store this securely — shown once only.', 'info', 8000);
+    }
+
+    async function loadAPIKey() {
+      const r = await api('GET', '/reseller/keys/status');
+      const el = document.getElementById('api-stats');
+      if (!r?.ok) { el.innerHTML = '<div style="font-size:.75rem;color:var(--c-text3)">No active key</div>'; return; }
+      const k = r.d;
+      el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;padding:12px;background:rgba(255,255,255,.03);border-radius:var(--r);border:1px solid var(--c-border)">
+      <div style="display:flex;justify-content:space-between"><span style="font-size:.72rem;color:var(--c-text3)">Total Requests</span><span style="font-weight:700">${k.usage?.total_requests || 0}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-size:.72rem;color:var(--c-text3)">DCPs Issued</span><span style="font-weight:700">${k.usage?.total_dcps_issued || 0}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-size:.72rem;color:var(--c-text3)">Hourly Usage</span><span style="font-weight:700">${k.usage?.current_hour_requests || 0}/${k.usage?.hourly_limit || 100}</span></div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        ${k.permissions?.can_issue_dcp ? '<span class="badge b-green">DCP Issue</span>' : ''}
+        ${k.permissions?.can_use_escrow ? '<span class="badge b-green">Escrow</span>' : ''}
+        ${k.permissions?.can_access_registry ? '<span class="badge b-green">Registry</span>' : ''}
+      </div>
+    </div>`;
+    }
+
+    async function revokeAPIKey() {
+      if (!confirm('Revoke your API key?')) return;
+      const r = await api('POST', '/reseller/keys/revoke');
+      if (r?.ok) { toast('Key Revoked', '', 'info'); document.getElementById('api-key-val').textContent = 'No active key'; }
+    }
+
+    // ── ADMIN ────────────────────────────────────────────────────
+    async function loadAdmin() {
+      const [ov, rev, pend] = await Promise.all([
+        api('GET', '/admin/overview'),
+        api('GET', '/admin/revenue?days=30'),
+        api('GET', '/admin/workshops/pending')
+      ]);
+      if (!ov?.ok) return;
+      const o = ov.d;
+      document.getElementById('admin-stats').innerHTML = `
+    <div class="stat"><div class="stat-label">Total DCPs</div><div class="stat-val">${o.dcps?.total || 0}</div><div class="stat-meta">This month: ${o.dcps?.this_month || 0}</div></div>
+    <div class="stat blue"><div class="stat-label">Escrow Volume</div><div class="stat-val" style="font-size:1.3rem">$${(o.escrow?.total_volume_usd || 0).toLocaleString()}</div></div>
+    <div class="stat green"><div class="stat-label">Platform Fees</div><div class="stat-val" style="font-size:1.3rem">$${(o.escrow?.total_fees_usd || 0).toFixed(0)}</div></div>
+    <div class="stat"><div class="stat-label">Total Users</div><div class="stat-val">${o.users?.total || 0}</div><div class="stat-meta">Active subs: ${o.users?.active_subscriptions || 0}</div></div>
+    <div class="stat red"><div class="stat-label">Critical Vehicles</div><div class="stat-val">${o.fleet?.critical_vehicles || 0}</div></div>
+    <div class="stat"><div class="stat-label">Scans Today</div><div class="stat-val">${o.fleet?.scans_today || 0}</div></div>`;
+
+      const ws = pend?.d?.workshops || [];
+      document.getElementById('pend-ws-ct').textContent = ws.length;
+      document.getElementById('pend-ws').innerHTML = !ws.length
+        ? '<div class="empty" style="padding:16px"><p>No pending approvals</p></div>'
+        : ws.map(w => `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--c-border)">
+        <div><div style="font-size:.8rem;font-weight:600">${w.name}</div><div style="font-size:.72rem;color:var(--c-text3)">${w.address}, ${w.state}</div></div>
+        <button class="btn btn-orange btn-sm" onclick="approveWS('${w.workshop_id}')">Approve</button>
+      </div>`).join('');
+
+      if (rev?.ok) {
+        const rr = rev.d.revenue;
+        document.getElementById('admin-rev').innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:0">
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--c-border)"><span style="font-size:.78rem;color:var(--c-text3)">Escrow Fees (30d)</span><span style="font-weight:700;color:var(--c-green)">$${(rr.escrow_fees_usd || 0).toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--c-border)"><span style="font-size:.78rem;color:var(--c-text3)">Subscription Revenue</span><span style="font-weight:700;color:var(--c-green)">NGN ${(rr.monthly_subscriptions_ngn || 0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0"><span style="font-size:.78rem;color:var(--c-text3)">Repair Commissions</span><span style="font-weight:700;color:var(--c-green)">NGN ${(rr.repair_commissions_ngn || 0).toLocaleString()}</span></div>
+      </div>`;
+      }
+    }
+
+    async function approveWS(id) {
+      const r = await api('POST', `/admin/workshops/${id}/approve`);
+      if (r?.ok) { toast('Workshop Approved', 'Now live in the network', 'ok'); loadAdmin(); }
+    }
+
+    // ── SUBSCRIPTION ─────────────────────────────────────────────
+    async function loadSubscription() {
+      const [st, pr] = await Promise.all([
+        api('GET', '/subscription/status'),
+        api('GET', '/subscription/pricing', null, false)
+      ]);
+      const sub = st?.d?.subscription;
+      if (sub) {
+        document.getElementById('sub-cur').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:rgba(255,255,255,.03);border-radius:var(--r);border:1px solid var(--c-border)">
+        <div>
+          <div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;letter-spacing:.1em">Current Plan</div>
+          <div style="font-family:var(--f-display);font-size:1.4rem;letter-spacing:.04em;text-transform:capitalize">${sub.plan}</div>
+          <div style="font-size:.72rem;color:var(--c-text3)">${sub.vehicle_slots} slot${sub.vehicle_slots !== 1 ? 's' : ''} · ${sub.days_remaining ?? '—'} days remaining</div>
+        </div>
+        <span class="badge ${sub.is_active ? 'b-green' : 'b-amber'}">${sub.is_active ? 'Active' : sub.status}</span>
+      </div>`;
+      }
+      const pricing = pr?.d?.pricing;
+      if (pricing) {
+        const plans = [
+          { key: 'private', name: 'PRIVATE OWNER', data: pricing.private_owner },
+          { key: 'fleet', name: 'FLEET MANAGER', data: pricing.fleet, featured: true },
+          { key: 'reseller', name: 'DEALER RESELLER', data: pricing.reseller }
+        ];
+        document.getElementById('sub-plans').innerHTML = `
+      <div class="plan-grid">${plans.map(pl => !pl.data ? '' : `
+        <div class="plan-card ${pl.featured ? 'featured' : ''}">
+          ${pl.featured ? '<div class="plan-top-badge">RECOMMENDED</div>' : ''}
+          <div class="plan-name">${pl.name}</div>
+          <div class="plan-price">NGN ${(pl.data.price_ngn || 0).toLocaleString()} <small>/month</small></div>
+          <div class="plan-features">${(pl.data.features || []).map(f => `<div class="pf">${f}</div>`).join('')}</div>
+          <button class="btn btn-${pl.featured ? 'orange' : 'ghost'} btn-block btn-sm" style="margin-top:14px" onclick="initSub('${pl.key}')">Choose Plan</button>
+        </div>`).join('')}</div>`;
+      }
+    }
+
+    async function initSub(plan) {
+      const r = await api('POST', '/subscription/initiate', { plan, vehicle_count: 1 });
+      if (!r?.ok) { toast('Error', r?.d?.detail || 'Failed', 'err'); return; }
+      if (r.d.payment_url) {
+        toast('Redirecting to Paystack', 'Complete payment to activate', 'info', 2000);
+        setTimeout(() => window.open(r.d.payment_url, '_blank'), 800);
+      }
+    }
+
+    // ── PROFILE ──────────────────────────────────────────────────
+    async function loadProfile() {
+      const r = await api('GET', '/auth/me');
+      if (!r?.ok) return;
+      const u = r.d.user;
+      document.getElementById('p-name').value = u.full_name || '';
+      document.getElementById('p-phone').value = u.phone || '';
+      document.getElementById('p-co').value = u.company_name || '';
+      document.getElementById('p-addr').value = u.address || '';
+    }
+
+    async function doUpdateProfile(e) {
+      e.preventDefault();
+      const r = await api('PUT', '/auth/me', {
+        full_name: document.getElementById('p-name').value,
+        phone: document.getElementById('p-phone').value,
+        company_name: document.getElementById('p-co').value,
+        address: document.getElementById('p-addr').value,
+        state: document.getElementById('p-state').value
+      });
+      if (r?.ok) {
+        toast('Profile Updated', '', 'ok');
+        USER.full_name = document.getElementById('p-name').value;
+        localStorage.setItem('tah_user', JSON.stringify(USER));
+        document.getElementById('s-name').textContent = USER.full_name;
+        document.getElementById('s-av').textContent = USER.full_name[0];
+      }
+    }
+
+    async function doChangePW(e) {
+      e.preventDefault();
+      hideAlert('pw-alert');
+      const nw = document.getElementById('pw-new').value;
+      const cf = document.getElementById('pw-cfm').value;
+      if (nw !== cf) { showAlert('pw-alert', 'Passwords do not match'); return; }
+      if (nw.length < 8) { showAlert('pw-alert', 'Min 8 characters'); return; }
+      const r = await api('POST', '/auth/change-password', {
+        current_password: document.getElementById('pw-cur').value,
+        new_password: nw
+      });
+      if (r?.ok) toast('Password Changed', '', 'ok');
+      else showAlert('pw-alert', r?.d?.detail || 'Failed');
+    }
+
+    // ── MODAL ────────────────────────────────────────────────────
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    document.querySelectorAll('.modal-bg').forEach(m => {
+      m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+    });
+
+    // ── UTILS ────────────────────────────────────────────────────
+    function fmt(iso) {
+      if (!iso) return '';
+      return new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ── SESSION RESTORE ──────────────────────────────────────────
+    if (TOKEN && USER) {
+      document.getElementById('auth-gate').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      bootApp();
+    }
+  </script>
+</body>
+
+</html>

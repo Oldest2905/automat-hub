@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Dashboard — The Automat Hub</title>
+  <link rel="stylesheet" href="../shared/styles.css"/>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">🚗</div>
+      <div>
+        <div class="logo-name">Automat Hub</div>
+        <div class="logo-sub">MY ACCOUNT</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Overview</div>
+      <a class="nav-item active" onclick="showPanel('dashboard')"><span class="nav-icon">📊</span>Dashboard</a>
+      <a class="nav-item" onclick="showPanel('vehicles')"><span class="nav-icon">🚗</span>My Vehicles</a>
+      <a class="nav-item" onclick="showPanel('dcps')"><span class="nav-icon">🛡️</span>My DCPs</a>
+      <div class="nav-section">Transactions</div>
+      <a class="nav-item" onclick="showPanel('escrows')"><span class="nav-icon">🔒</span>Escrow Deals</a>
+      <a class="nav-item" onclick="showPanel('alerts')"><span class="nav-icon">⚠️</span>Alerts <span class="nav-badge" id="alertBadge" style="display:none">0</span></a>
+      <div class="nav-section">Services</div>
+      <a class="nav-item" onclick="showPanel('workshop')"><span class="nav-icon">🔧</span>Find Workshop</a>
+      <a class="nav-item" onclick="showPanel('subscription')"><span class="nav-icon">💳</span>Subscription</a>
+      <a class="nav-item" onclick="showPanel('vehicles')" href="connect-vehicle.html"><span class="nav-icon">🔌</span>Connect Vehicle</a>
+      <a class="nav-item" href="scan.html"><span class="nav-icon">📷</span>Scan QR Code</a>
+      <a class="nav-item" href="escrow-new.html"><span class="nav-icon">🔒</span>Start Escrow</a>
+      <a class="nav-item" href="../pages/verify.html" target="_blank"><span class="nav-icon">🔍</span>Verify a DCP</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="user-avatar" id="sidebarAvatar">?</div>
+        <div>
+          <div class="user-name" id="sidebarName">Loading...</div>
+          <div class="user-role">Private Owner</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm btn-full" style="margin-top:10px" onclick="Auth.logout()">Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-content">
+    <div class="topbar">
+      <div style="font-size:15px;font-weight:700" id="pageTitle">Dashboard</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="subStatus">Trial</span>
+        <button class="btn btn-primary btn-sm" onclick="showPanel('vehicles'); openAddVehicleModal()">+ Add Vehicle</button>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- DASHBOARD PANEL -->
+      <div id="panel-dashboard" class="panel-section">
+        <div class="stat-grid mb-6" id="dashStats">
+          <div class="stat-card orange"><div class="stat-label">My Vehicles</div><div class="stat-value" id="st-vehicles">—</div><div class="stat-sub">Registered</div></div>
+          <div class="stat-card green"><div class="stat-label">Active DCPs</div><div class="stat-value" id="st-dcps">—</div><div class="stat-sub">Issued passports</div></div>
+          <div class="stat-card blue"><div class="stat-label">Health Score</div><div class="stat-value" id="st-health">—</div><div class="stat-sub">Average fleet health</div></div>
+          <div class="stat-card red"><div class="stat-label">Active Alerts</div><div class="stat-value" id="st-alerts">—</div><div class="stat-sub">Need attention</div></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🚗 My Vehicles</div>
+              <div class="card-action" onclick="showPanel('vehicles')">View all →</div>
+            </div>
+            <div class="card-body" id="dash-vehicles">
+              <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Loading vehicles...</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">⚠️ Recent Alerts</div>
+              <div class="card-action" onclick="showPanel('alerts')">View all →</div>
+            </div>
+            <div class="card-body" id="dash-alerts">
+              <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Loading alerts...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VEHICLES PANEL -->
+      <div id="panel-vehicles" class="panel-section" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+          <h2>My Vehicles</h2>
+          <button class="btn btn-primary" onclick="openAddVehicleModal()">+ Register Vehicle</button>
+        </div>
+        <div id="vehicles-list">
+          <div style="color:var(--muted);text-align:center;padding:40px">Loading...</div>
+        </div>
+      </div>
+
+      <!-- DCPs PANEL -->
+      <div id="panel-dcps" class="panel-section" style="display:none">
+        <h2 style="margin-bottom:20px">My Digital Condition Passports</h2>
+        <div class="card">
+          <table class="table">
+            <thead><tr><th>DCP ID</th><th>Vehicle</th><th>Score</th><th>Grade</th><th>Status</th><th>Issued</th><th>Actions</th></tr></thead>
+            <tbody id="dcps-table"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">Loading DCPs...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ESCROWS PANEL -->
+      <div id="panel-escrows" class="panel-section" style="display:none">
+        <h2 style="margin-bottom:20px">Escrow Deals</h2>
+        <div class="card">
+          <table class="table">
+            <thead><tr><th>Escrow ID</th><th>Vehicle</th><th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="escrows-table"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No escrow deals yet</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ALERTS PANEL -->
+      <div id="panel-alerts" class="panel-section" style="display:none">
+        <h2 style="margin-bottom:20px">Vehicle Alerts</h2>
+        <div id="alerts-list">
+          <div style="color:var(--muted);text-align:center;padding:40px">Loading alerts...</div>
+        </div>
+      </div>
+
+      <!-- WORKSHOP PANEL -->
+      <div id="panel-workshop" class="panel-section" style="display:none">
+        <h2 style="margin-bottom:8px">Find a Workshop</h2>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:24px">Registered Automat Hub partner workshops near you</p>
+        <div class="card">
+          <div class="card-body">
+            <div style="color:var(--muted);text-align:center;padding:40px;font-size:13px">
+              Workshop finder coming soon.<br>For now, call: <a href="tel:+2349167476422" style="color:var(--orange)">+234 916 747 6422</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBSCRIPTION PANEL -->
+      <div id="panel-subscription" class="panel-section" style="display:none">
+        <h2 style="margin-bottom:20px">My Subscription</h2>
+        <div id="sub-content">
+          <div style="color:var(--muted);text-align:center;padding:40px">Loading...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ADD VEHICLE MODAL -->
+<div id="addVehicleModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)closeModal('addVehicleModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Register a Vehicle</div>
+      <div class="modal-close" onclick="closeModal('addVehicleModal')">×</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">VIN (17 chars) *</label><input id="mv-vin" placeholder="1C4HJXDN0MW524170" maxlength="17" oninput="this.value=this.value.toUpperCase()"/></div>
+        <div class="form-group"><label class="form-label">Plate Number</label><input id="mv-plate" placeholder="OY-123-ABC"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Make *</label><input id="mv-make" placeholder="Toyota"/></div>
+        <div class="form-group"><label class="form-label">Model *</label><input id="mv-model" placeholder="Camry"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Year *</label><input id="mv-year" type="number" placeholder="2021" min="1990" max="2030"/></div>
+        <div class="form-group"><label class="form-label">Colour</label><input id="mv-colour" placeholder="Black"/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addVehicleModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addVehicle()">Register Vehicle</button>
+    </div>
+  </div>
+</div>
+
+<script src="/frontend/shared/config.js"></script>
+<script>
+  Auth.requireAuth(['private_owner', 'fleet_owner']);
+  const user = Auth.getUser();
+
+  // Init user display
+  document.getElementById('sidebarName').textContent = user.full_name || 'User';
+  document.getElementById('sidebarAvatar').textContent = (user.full_name || 'U')[0].toUpperCase();
+  document.getElementById('subStatus').textContent = (user.subscription_status || 'trial').toUpperCase();
+
+  // Panel navigation
+  function showPanel(name) {
+    document.querySelectorAll('.panel-section').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`panel-${name}`).style.display = 'block';
+    document.querySelectorAll('.nav-item').forEach(n => {
+      if (n.getAttribute('onclick')?.includes(`'${name}'`)) n.classList.add('active');
+    });
+    const titles = {dashboard:'Dashboard', vehicles:'My Vehicles', dcps:'My DCPs', escrows:'Escrow Deals', alerts:'Alerts', workshop:'Find Workshop', subscription:'Subscription'};
+    document.getElementById('pageTitle').textContent = titles[name] || name;
+    loaders[name]?.();
+  }
+
+  const loaders = {
+    dashboard: loadDashboard,
+    vehicles: loadVehicles,
+    dcps: loadDCPs,
+    escrows: loadEscrows,
+    alerts: loadAlerts,
+    subscription: loadSubscription,
+  };
+
+  // Load dashboard
+  async function loadDashboard() {
+    const data = await API.get('/fleet/dashboard');
+    if (!data?.success) return;
+    const v = data.data || data;
+    const summary = v.summary || {};
+    document.getElementById('st-vehicles').textContent = summary.total_vehicles || 0;
+    document.getElementById('st-dcps').textContent = summary.total_vehicles || 0;
+    document.getElementById('st-health').textContent = (summary.fleet_health_score || 0) + '%';
+    document.getElementById('st-alerts').textContent = summary.critical || 0;
+
+    // Vehicles summary
+    const vehicles = v.vehicles || [];
+    const dashVehicles = document.getElementById('dash-vehicles');
+    if (!vehicles.length) {
+      dashVehicles.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted)"><div style="font-size:32px;margin-bottom:8px">🚗</div><div style="font-size:13px">No vehicles registered yet</div><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="showPanel('vehicles');openAddVehicleModal()">Register Your First Vehicle</button></div>`;
+    } else {
+      dashVehicles.innerHTML = vehicles.slice(0,3).map(v => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+          <div class="status-dot dot-${v.status}"></div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600">${v.make} ${v.model}</div><div style="font-size:11px;color:var(--muted)">${v.plate_number||v.vin?.slice(-8)}</div></div>
+          <div style="text-align:right"><div style="font-family:var(--mono);font-size:13px;color:${v.health_score>=80?'var(--green)':v.health_score>=60?'var(--yellow)':'var(--red)'}">${v.health_score||'--'}</div><div style="font-size:10px;color:var(--muted)">/100</div></div>
+        </div>
+      `).join('');
+    }
+  }
+
+  async function loadVehicles() {
+    const data = await API.get('/fleet/dashboard');
+    const vehicles = data?.data?.vehicles || data?.vehicles || [];
+    const container = document.getElementById('vehicles-list');
+    if (!vehicles.length) {
+      UI.empty('vehicles-list', 'No vehicles registered. Add your first vehicle.', '🚗');
+      return;
+    }
+    container.innerHTML = `<div style="display:grid;gap:14px">${vehicles.map(v => `
+      <div class="card">
+        <div class="card-body" style="display:flex;align-items:center;gap:16px">
+          <div class="status-dot dot-${v.status}" style="width:12px;height:12px"></div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:700">${v.make} ${v.model} ${v.year||''}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">VIN: ${v.vin} · ${v.plate_number||'No plate'}</div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              ${v.has_faults ? `<span class="badge badge-red">⚠️ ${v.fault_count} fault(s)</span>` : '<span class="badge badge-green">✓ Healthy</span>'}
+              ${v.fuel_level ? `<span class="badge badge-muted">⛽ ${Math.round(v.fuel_level)}%</span>` : ''}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:28px;font-weight:800;color:${v.health_score>=80?'var(--green)':v.health_score>=60?'var(--yellow)':'var(--red)'}">${v.health_score||'--'}</div>
+            <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">HEALTH SCORE</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Last scan: ${v.last_scan?UI.formatDateTime(v.last_scan):'Never'}</div>
+          </div>
+        </div>
+      </div>
+    `).join('')}</div>`;
+  }
+
+  async function loadDCPs() {
+    const tbody = document.getElementById('dcps-table');
+    if (!tbody) return;
+
+    // Show loading state
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px">' + UI.spinner(20) + ' Loading DCPs...</td></tr>';
+    
+    try {
+        // FIXED: Call the fleet/user endpoint, NOT the admin endpoint to avoid 403 error
+        const data = await API.get('/fleet/dcps?limit=50'); 
+        
+        if (!data?.success || !data.dcps?.length) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No DCPs found. Book an inspection at the Ibadan Hub.</td></tr>';
+          return;
+        }
+        
+        // Render the DCP data directly from the response
+        tbody.innerHTML = data.dcps.map(d => `
+          <tr>
+            <td><span style="font-family:var(--mono);font-size:11px;color:var(--orange)">${d.dcp_id}</span></td>
+            <td>${d.year || ''} ${d.make || ''} ${d.model || ''}</td>
+            <td><strong>${d.score}</strong>/100</td>
+            <td>${UI.badge('Grade ' + d.grade, d.grade === 'A' ? 'success' : d.grade === 'B' ? 'info' : 'warning')}</td>
+            <td>${UI.badge(d.status || 'ACTIVE', 'success')}</td>
+            <td style="font-size:12px;color:var(--muted)">${UI.formatDate(d.issued_at)}</td>
+            <td><a href="../pages/verify.html?dcp=${d.dcp_id}" target="_blank" class="btn btn-ghost btn-sm">View →</a></td>
+          </tr>
+        `).join('');
+    } catch (e) {
+        console.error("DCP Load Error:", e);
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--red);padding:30px">Failed to load DCPs. Please try again.</td></tr>';
+    }
+    // For vehicles with DCP IDs, show them
+    const rows = vehicles.filter(v => v.latest_dcp_id).map(v => `
+      <tr>
+        <td><span style="font-family:var(--mono);font-size:11px;color:var(--orange)">${v.latest_dcp_id||'—'}</span></td>
+        <td>${v.make||''} ${v.model||''}</td>
+        <td><strong>${v.health_score||'—'}</strong>/100</td>
+        <td>${UI.badge('Active','success')}</td>
+        <td>${UI.badge('VERIFIED','success')}</td>
+        <td style="font-size:12px;color:var(--muted)">${UI.formatDate(v.last_scan)}</td>
+        <td><a href="../pages/verify.html?dcp=${v.latest_dcp_id}" target="_blank" class="btn btn-ghost btn-sm">View →</a></td>
+      </tr>
+    `);
+    tbody.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No DCPs issued yet. Book an inspection at the Ibadan Hub.</td></tr>';
+  }
+
+  async function loadEscrows() {
+    const tbody = document.getElementById('escrows-table');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No escrow deals yet</td></tr>';
+  }
+
+  async function loadAlerts() {
+    const data = await API.get('/fleet/alerts?resolved=false');
+    const container = document.getElementById('alerts-list');
+    const alerts = data?.alerts || [];
+    if (!alerts.length) {
+      UI.empty('alerts-list', 'No active alerts. All vehicles healthy.', '✅');
+      return;
+    }
+    document.getElementById('alertBadge').textContent = alerts.length;
+    document.getElementById('alertBadge').style.display = 'inline';
+    container.innerHTML = alerts.map(a => `
+      <div class="card mb-4">
+        <div class="card-body">
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            <div style="font-size:22px">${a.severity==='critical'?'🚨':a.severity==='warning'?'⚠️':'ℹ️'}</div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:700;margin-bottom:4px">${a.title}</div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:8px">${a.message}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                ${(a.fault_codes||[]).map(f=>`<span class="badge badge-red">${f}</span>`).join('')}
+                <span class="badge badge-muted">${UI.formatDateTime(a.created_at)}</span>
+              </div>
+            </div>
+            ${UI.badge(a.severity, a.severity==='critical'?'danger':a.severity==='warning'?'warning':'info')}
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function loadSubscription() {
+    const data = await API.get('/subscription/status');
+    const sub = data?.subscription || {};
+    document.getElementById('sub-content').innerHTML = `
+      <div class="card">
+        <div class="card-body">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <div>
+              <div style="font-size:20px;font-weight:800;margin-bottom:4px">${(sub.plan||'free').toUpperCase()} PLAN</div>
+              <div style="font-size:13px;color:var(--muted)">Valid until: ${UI.formatDate(sub.valid_until)}</div>
+            </div>
+            ${UI.badge(sub.status||'inactive', sub.is_active?'success':'danger')}
+          </div>
+          <div style="margin-bottom:20px">
+            <div class="label" style="margin-bottom:8px">Vehicle Slots Used</div>
+            <div style="font-size:28px;font-weight:800">${sub.vehicle_slots||0}</div>
+            <div style="font-size:12px;color:var(--muted)">Days remaining: ${sub.days_remaining||0}</div>
+          </div>
+          <a href="../index.html#pricing" class="btn btn-primary">Upgrade Plan</a>
+        </div>
+      </div>
+    `;
+  }
+
+  function openAddVehicleModal() {
+    document.getElementById('addVehicleModal').style.display = 'flex';
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+  }
+
+  async function addVehicle() {
+    const vin = document.getElementById('mv-vin').value.trim();
+    const make = document.getElementById('mv-make').value.trim();
+    const model = document.getElementById('mv-model').value.trim();
+    const year = parseInt(document.getElementById('mv-year').value);
+    const plate = document.getElementById('mv-plate').value.trim();
+    const colour = document.getElementById('mv-colour').value.trim();
+
+    if (!vin || vin.length !== 17 || !make || !model || !year) {
+      UI.toast('Please fill in all required fields (VIN must be 17 characters)', 'error'); return;
+    }
+
+    const data = await API.post('/fleet/vehicle/add', {vin, make, model, year, colour: colour||'Unknown', plate_number: plate});
+    if (data?.success) {
+      UI.toast('Vehicle registered successfully!', 'success');
+      closeModal('addVehicleModal');
+      loadVehicles();
+      loadDashboard();
+    } else {
+      UI.toast(data?.detail || 'Failed to register vehicle', 'error');
+    }
+  }
+
+  // Init
+  loadDashboard();
+</script>
+</body>
+</html>

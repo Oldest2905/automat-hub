@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reseller Dashboard — The Automat Hub</title>
+  <link rel="stylesheet" href="../shared/styles.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">🏪</div>
+      <div><div class="logo-name">Automat Hub</div><div class="logo-sub">RESELLER PORTAL</div></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Overview</div>
+      <a class="nav-item active" onclick="showPanel('dashboard')"><span class="nav-icon">📊</span>Dashboard</a>
+      <a class="nav-item" onclick="showPanel('api-key')"><span class="nav-icon">🔑</span>API Key</a>
+      <div class="nav-section">Protocol Access</div>
+      <a class="nav-item" onclick="showPanel('issue-dcp')"><span class="nav-icon">🛡️</span>Issue DCP</a>
+      <a class="nav-item" onclick="showPanel('verify-dcp')"><span class="nav-icon">🔍</span>Verify DCP</a>
+      <a class="nav-item" onclick="showPanel('escrow')"><span class="nav-icon">🔒</span>Create Escrow</a>
+      <div class="nav-section">Business</div>
+      <a class="nav-item" onclick="showPanel('usage')"><span class="nav-icon">📈</span>Usage & Billing</a>
+      <a class="nav-item" onclick="showPanel('docs')"><span class="nav-icon">📚</span>API Docs</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="user-avatar" id="sidebarAvatar">R</div>
+        <div><div class="user-name" id="sidebarName">Reseller</div><div class="user-role">Licensed Dealer</div></div>
+      </div>
+      <button class="btn btn-ghost btn-sm btn-full" style="margin-top:10px" onclick="Auth.logout()">Sign Out</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div style="font-size:15px;font-weight:700" id="pageTitle">Reseller Dashboard</div>
+      <div style="display:flex;gap:10px">
+        <span class="badge badge-orange" id="apiKeyBadge">API KEY: Loading...</span>
+      </div>
+    </div>
+    <div class="page-content">
+
+      <!-- DASHBOARD -->
+      <div id="panel-dashboard" class="panel-section">
+        <div class="stat-grid mb-6">
+          <div class="stat-card orange"><div class="stat-label">Total Requests</div><div class="stat-value" id="st-requests">—</div><div class="stat-sub">All time</div></div>
+          <div class="stat-card green"><div class="stat-label">DCPs Issued</div><div class="stat-value" id="st-dcps">—</div><div class="stat-sub">Via API</div></div>
+          <div class="stat-card blue"><div class="stat-label">This Hour</div><div class="stat-value" id="st-hour">—</div><div class="stat-sub" id="st-hour-limit">of 100 limit</div></div>
+          <div class="stat-card"><div class="stat-label">Billing This Month</div><div class="stat-value" id="st-billing" style="font-size:20px">—</div><div class="stat-sub">Estimated NGN</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><div class="card-title">🔑 Your API Key</div></div>
+            <div class="card-body">
+              <div style="font-family:var(--mono);font-size:12px;color:var(--orange);background:var(--bg);padding:12px;border-radius:8px;border:1px solid var(--border);word-break:break-all;margin-bottom:12px" id="apiKeyDisplay">Loading...</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Include in every API request as: <code style="font-family:var(--mono);color:var(--orange)">X-API-Key: YOUR_KEY</code></div>
+              <button class="btn btn-ghost btn-sm" onclick="copyApiKey()">📋 Copy Key</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">💰 Pricing</div></div>
+            <div class="card-body">
+              <div style="display:grid;gap:10px">
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">Monthly Base</span><span class="mono">₦50,000</span></div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">Per DCP Issued</span><span class="mono">₦5,000</span></div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px"><span style="color:var(--muted)">Escrow Fee</span><span class="mono">1.5% per transaction</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API KEY -->
+      <div id="panel-api-key" class="panel-section" style="display:none">
+        <h2 style="margin-bottom:20px">API Key Management</h2>
+        <div class="card mb-6">
+          <div class="card-body">
+            <div id="key-status-content">Loading...</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">⚠️ Security Rules</div></div>
+          <div class="card-body">
+            <div style="display:grid;gap:12px;font-size:13px;color:var(--muted)">
+              <div>🔐 Never expose your API key in frontend JavaScript or public repositories.</div>
+              <div>🔄 Rotate your key immediately if you suspect it has been compromised.</div>
+              <div>📊 Rate limit: 100 requests/hour · 1,000 requests/day.</div>
+              <div>📋 All requests are logged and billed monthly.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ISSUE DCP -->
+      <div id="panel-issue-dcp" class="panel-section" style="display:none">
+        <h2 style="margin-bottom:8px">Issue a Digital Condition Passport</h2>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:24px">Each DCP issued is billed at ₦5,000 on your monthly invoice.</p>
+        <div class="card">
+          <div class="card-body">
+            <div style="background:var(--surface2);border-radius:8px;padding:16px;font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:20px">
+              <div style="color:var(--green);margin-bottom:8px">// API endpoint</div>
+              POST <span style="color:var(--white)">${CONFIG.API_URL}/reseller/dcp/issue</span><br>
+              X-API-Key: <span style="color:var(--orange)">YOUR_API_KEY</span><br><br>
+              <div style="color:var(--green)">// Or use the form below</div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">VIN *</label><input id="dcp-vin" placeholder="17-character VIN" maxlength="17" oninput="this.value=this.value.toUpperCase()"/></div>
+              <div class="form-group"><label class="form-label">Make *</label><input id="dcp-make" placeholder="Toyota"/></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Model *</label><input id="dcp-model" placeholder="Camry"/></div>
+              <div class="form-group"><label class="form-label">Year *</label><input id="dcp-year" type="number" placeholder="2021"/></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Colour</label><input id="dcp-colour" placeholder="Black"/></div>
+              <div class="form-group"><label class="form-label">Odometer (km)</label><input id="dcp-odometer" type="number" placeholder="45000"/></div>
+            </div>
+            <div class="form-group"><label class="form-label">Overall Score (0-100) *</label><input id="dcp-score" type="number" min="0" max="100" placeholder="85"/></div>
+            <div class="form-group"><label class="form-label">OBD-II Status</label>
+              <select id="dcp-obd"><option value="Clear">Clear</option><option value="Faults Present">Faults Present</option></select>
+            </div>
+            <button class="btn btn-primary" onclick="issueDCP()">Issue DCP — ₦5,000</button>
+          </div>
+        </div>
+        <div id="dcp-result" style="margin-top:20px;display:none"></div>
+      </div>
+
+      <!-- VERIFY DCP -->
+      <div id="panel-verify-dcp" class="panel-section" style="display:none">
+        <h2 style="margin-bottom:8px">Verify a DCP</h2>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:24px">Free — no charge for verification.</p>
+        <div class="card">
+          <div class="card-body">
+            <div class="form-group"><label class="form-label">DCP ID</label><input id="verify-dcp-id" placeholder="ATH-2026-XXXXXXXX"/></div>
+            <button class="btn btn-primary" onclick="verifyDCP()">Verify DCP</button>
+          </div>
+        </div>
+        <div id="verify-result" style="margin-top:20px;display:none"></div>
+      </div>
+
+      <!-- USAGE -->
+      <div id="panel-usage" class="panel-section" style="display:none">
+        <h2 style="margin-bottom:20px">Usage & Billing</h2>
+        <div class="stat-grid-3 mb-6">
+          <div class="stat-card"><div class="stat-label">Base Subscription</div><div class="stat-value orange">₦50,000</div><div class="stat-sub">Monthly</div></div>
+          <div class="stat-card"><div class="stat-label">DCPs This Month</div><div class="stat-value" id="usage-dcps">—</div><div class="stat-sub" id="usage-dcp-cost">@ ₦5,000 each</div></div>
+          <div class="stat-card green"><div class="stat-label">Estimated Total</div><div class="stat-value" id="usage-total">—</div><div class="stat-sub">This month</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Rate Limits</div></div>
+          <div class="card-body">
+            <div style="margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Requests this hour</span><span class="mono" id="rl-hour">—</span></div>
+              <div class="health-bar"><div class="health-bar-fill health-high" id="rl-hour-bar" style="width:0%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DOCS -->
+      <div id="panel-docs" class="panel-section" style="display:none">
+        <h2 style="margin-bottom:8px">API Documentation</h2>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:24px">Quick reference for integrating the Automat Hub protocol into your platform.</p>
+        <div class="card mb-4">
+          <div class="card-header"><div class="card-title">Authentication</div></div>
+          <div class="card-body">
+            <pre style="font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--bg);padding:16px;border-radius:8px;overflow-x:auto"><span style="color:var(--green)">// Add to every request header</span>
+X-API-Key: YOUR_API_KEY_HERE</pre>
+          </div>
+        </div>
+        <div class="card mb-4">
+          <div class="card-header"><div class="card-title">Issue a DCP</div></div>
+          <div class="card-body">
+            <pre style="font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg);padding:16px;border-radius:8px;overflow-x:auto"><span style="color:var(--blue)">POST</span> /reseller/dcp/issue
+Content-Type: application/json
+X-API-Key: YOUR_KEY
+
+{
+  "vehicle": {
+    "vin": "1C4HJXDN0MW524170",
+    "make": "Jeep", "model": "Wrangler",
+    "year": 2021, "colour": "Black", "odometer": 45000
+  },
+  "inspection": {
+    "score": 98,
+    "obd2_status": "Clear",
+    "obd2_fault_codes": [],
+    ...
+  },
+  "auditor_id": "YOUR-AUDITOR-ID"
+}</pre>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Verify a DCP</div></div>
+          <div class="card-body">
+            <pre style="font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg);padding:16px;border-radius:8px;overflow-x:auto"><span style="color:var(--blue)">GET</span> /reseller/dcp/verify/{dcp_id}
+X-API-Key: YOUR_KEY
+
+<span style="color:var(--green)">// Response</span>
+{ "is_valid": true, "score": 98, "vin": "...", ... }</pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/frontend/shared/config.js"></script>
+<script>
+  Auth.requireAuth(['reseller']);
+  const user = Auth.getUser();
+  document.getElementById('sidebarName').textContent = user.full_name || 'Reseller';
+  document.getElementById('sidebarAvatar').textContent = (user.full_name||'R')[0];
+
+  function showPanel(name) {
+    document.querySelectorAll('.panel-section').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`panel-${name}`).style.display = 'block';
+    document.querySelectorAll('.nav-item').forEach(n => { if (n.getAttribute('onclick')?.includes(`'${name}'`)) n.classList.add('active'); });
+    loaders[name]?.();
+  }
+
+  const loaders = { dashboard: loadDashboard, 'api-key': loadApiKey, usage: loadUsage };
+
+  async function loadDashboard() {
+    const data = await API.get('/reseller/keys/status');
+    if (data?.success) {
+      document.getElementById('st-requests').textContent = data.usage?.total_requests || 0;
+      document.getElementById('st-dcps').textContent = data.usage?.total_dcps_issued || 0;
+      document.getElementById('st-hour').textContent = data.usage?.current_hour_requests || 0;
+      const dcps = data.usage?.total_dcps_issued || 0;
+      document.getElementById('st-billing').textContent = UI.formatNGN(50000 + dcps*5000);
+      document.getElementById('apiKeyDisplay').textContent = data.prefix + '••••••••••••••••••••••••';
+      document.getElementById('apiKeyBadge').textContent = 'KEY: ' + data.prefix + '...';
+    }
+  }
+
+  async function loadApiKey() {
+    const data = await API.get('/reseller/keys/status');
+    if (data?.success) {
+      document.getElementById('key-status-content').innerHTML = `
+        <div style="margin-bottom:16px">
+          <div class="label" style="margin-bottom:6px">API Key Prefix</div>
+          <div style="font-family:var(--mono);font-size:16px;color:var(--orange)">${data.prefix}••••••••••••••••••••••••</div>
+        </div>
+        <div style="display:flex;gap:16px;margin-bottom:20px">
+          ${UI.badge(data.is_active?'Active':'Inactive', data.is_active?'success':'danger')}
+          <span style="font-size:12px;color:var(--muted)">Last used: ${UI.formatDateTime(data.last_used)}</span>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-danger btn-sm" onclick="revokeKey()">🗑️ Revoke Key</button>
+          <button class="btn btn-primary btn-sm" onclick="generateKey()">🔑 Generate New Key</button>
+        </div>
+      `;
+    } else {
+      document.getElementById('key-status-content').innerHTML = `
+        <div style="text-align:center;padding:20px">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:16px">No API key yet. Generate one to start using the protocol.</div>
+          <button class="btn btn-primary" onclick="generateKey()">Generate API Key</button>
+        </div>
+      `;
+    }
+  }
+
+  async function generateKey() {
+    if (!confirm('Generate a new API key? If you have an existing key it must be revoked first.')) return;
+    const data = await API.post('/reseller/keys/generate', {});
+    if (data?.success) {
+      UI.toast('API key generated! Copy it now — it will not be shown again.', 'success');
+      // Show key in alert
+      const key = data.api_key;
+      document.getElementById('key-status-content').innerHTML = `
+        <div class="alert alert-warning" style="margin-bottom:16px">⚠️ Copy this key now. It will not be shown again.</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--orange);background:var(--bg);padding:14px;border-radius:8px;border:1px solid var(--border);word-break:break-all;margin-bottom:12px">${key}</div>
+        <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText('${key}').then(()=>UI.toast('Copied!','success'))">📋 Copy Key</button>
+      `;
+    } else {
+      UI.toast(data?.detail || 'Failed to generate key', 'error');
+    }
+  }
+
+  async function revokeKey() {
+    if (!confirm('Revoke your API key? All API calls will stop working immediately.')) return;
+    const data = await API.post('/reseller/keys/revoke', {});
+    if (data?.success) { UI.toast('Key revoked', 'success'); loadApiKey(); }
+  }
+
+  function copyApiKey() {
+    UI.toast('Key prefix shown. Generate a fresh key to copy the full value.', 'warning');
+  }
+
+  async function issueDCP() {
+    const vin = document.getElementById('dcp-vin').value.trim();
+    const score = parseInt(document.getElementById('dcp-score').value);
+    if (!vin || vin.length !== 17 || !score) { UI.toast('VIN (17 chars) and score required', 'error'); return; }
+
+    const payload = {
+      vehicle: { vin, make: document.getElementById('dcp-make').value, model: document.getElementById('dcp-model').value, year: parseInt(document.getElementById('dcp-year').value)||2020, colour: document.getElementById('dcp-colour').value||'Unknown', odometer: parseInt(document.getElementById('dcp-odometer').value)||0 },
+      inspection: { score, obd2_status: document.getElementById('dcp-obd').value, obd2_fault_codes:[], obd2_readiness_monitors:{}, engine_compression:'Nominal', engine_oil_condition:'Good', coolant_condition:'Good', timing_belt_condition:'Good', transmission_condition:'Good', transmission_fluid:'Good', frame_alignment:'Factory', rust_assessment:'Minimal', accident_history_indicators:false, paint_uniformity:'Uniform', battery_health:'Good', alternator_output:'Nominal', electronics_status:'Good', brake_condition:'Nominal', tyre_condition:{front:'Good',rear:'Good'}, airbag_status:'Intact', abs_status:'Functional', ai_condition_grade:'Good', ai_confidence_score:0.9, ai_flags:[], checklist_results:{general:'pass'} },
+      auditor_id: 'RES-' + (user.user_id || 'DEALER')
+    };
+
+    const data = await API.post('/reseller/dcp/issue', payload);
+    const result = document.getElementById('dcp-result');
+    result.style.display = 'block';
+    if (data?.success) {
+      result.innerHTML = `<div class="alert alert-success">✅ DCP issued: <strong>${data.data?.dcp_id}</strong> · <a href="../pages/verify.html?dcp=${data.data?.dcp_id}" target="_blank" style="color:var(--green)">View DCP →</a></div>`;
+    } else {
+      result.innerHTML = `<div class="alert alert-error">❌ ${data?.detail || 'Failed to issue DCP'}</div>`;
+    }
+  }
+
+  async function verifyDCP() {
+    const id = document.getElementById('verify-dcp-id').value.trim();
+    if (!id) { UI.toast('Enter a DCP ID', 'error'); return; }
+    const data = await API.get(`/reseller/dcp/verify/${id}`);
+    const result = document.getElementById('verify-result');
+    result.style.display = 'block';
+    if (data?.success && data.data?.is_valid) {
+      result.innerHTML = `<div class="alert alert-success">✅ DCP verified — Score: ${data.data.score}/100 · <a href="../pages/verify.html?dcp=${id}" target="_blank" style="color:var(--green)">Full report →</a></div>`;
+    } else {
+      result.innerHTML = `<div class="alert alert-error">❌ DCP not found or invalid</div>`;
+    }
+  }
+
+  async function loadUsage() {
+    const data = await API.get('/reseller/keys/status');
+    if (data?.success) {
+      const dcps = data.usage?.total_dcps_issued || 0;
+      document.getElementById('usage-dcps').textContent = dcps;
+      document.getElementById('usage-dcp-cost').textContent = `= ${UI.formatNGN(dcps*5000)}`;
+      document.getElementById('usage-total').textContent = UI.formatNGN(50000 + dcps*5000);
+      const hourPct = Math.min(100, ((data.usage?.current_hour_requests||0)/100)*100);
+      document.getElementById('rl-hour').textContent = `${data.usage?.current_hour_requests||0} / 100`;
+      document.getElementById('rl-hour-bar').style.width = hourPct + '%';
+      document.getElementById('rl-hour-bar').className = `health-bar-fill ${hourPct>80?'health-low':hourPct>50?'health-medium':'health-high'}`;
+    }
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

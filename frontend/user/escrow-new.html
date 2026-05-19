@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>New Escrow — The Automat Hub</title>
+  <link rel="stylesheet" href="../shared/styles.css"/>
+  <style>
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:var(--bg)}
+    .wrap{width:100%;max-width:520px}
+    .step-indicator{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:32px}
+    .step-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;color:var(--muted);transition:all 0.2s}
+    .step-dot.active{border-color:var(--orange);color:var(--orange);background:var(--orange-dim)}
+    .step-dot.done{border-color:var(--green);background:rgba(34,208,122,0.12);color:var(--green)}
+    .step-line{flex:1;height:1px;background:var(--border);max-width:40px}
+    .step-line.done{background:var(--green)}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div style="text-align:center;margin-bottom:28px">
+    <div style="font-size:28px;font-weight:800;margin-bottom:4px">Start Escrow Payment</div>
+    <div style="font-size:13px;color:var(--muted)">Your money is held safely until the car checks out</div>
+  </div>
+
+  <!-- Step indicators -->
+  <div class="step-indicator">
+    <div class="step-dot active" id="sd1">1</div>
+    <div class="step-line" id="sl1"></div>
+    <div class="step-dot" id="sd2">2</div>
+    <div class="step-line" id="sl2"></div>
+    <div class="step-dot" id="sd3">3</div>
+  </div>
+
+  <div id="errorMsg" class="alert alert-error" style="display:none;margin-bottom:16px"></div>
+
+  <!-- Step 1: DCP Verification -->
+  <div id="step1" class="card">
+    <div class="card-header"><div class="card-title">Step 1 — Verify the DCP</div></div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Enter the DCP ID from the vehicle's QR code or NFC tag. We will verify the car's condition record before you pay.</p>
+      <div class="form-group">
+        <label class="form-label">DCP ID *</label>
+        <input id="dcpId" placeholder="ATH-2026-XXXXXXXX" oninput="this.value=this.value.toUpperCase()"/>
+      </div>
+      <div id="dcpPreview" style="display:none;background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:14px;font-weight:700" id="dcp-vehicle-name">—</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="dcp-vin-display">VIN: —</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:28px;font-weight:800;color:var(--orange)" id="dcp-score-display">—</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">SCORE</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="verifyDCP()">Verify DCP</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Deal Details -->
+  <div id="step2" class="card" style="display:none">
+    <div class="card-header"><div class="card-title">Step 2 — Deal Details</div></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Seller Name *</label>
+        <input id="sellerName" placeholder="Name of the seller"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount in USD *</label>
+        <input id="amountUSD" type="number" min="100" placeholder="15000" oninput="updateAmountPreview()"/>
+        <div class="form-hint">Approximate NGN equivalent: <span id="ngnPreview" style="color:var(--orange)">₦0</span></div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Amount</span><span id="fee-amount">$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Platform Fee (1.5%)</span><span id="fee-platform" style="color:var(--red)">-$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;font-weight:700"><span>Seller Receives</span><span id="fee-seller" style="color:var(--green)">$0</span></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+        <button class="btn btn-primary" style="flex:1" onclick="goStep3()">Continue →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Pay -->
+  <div id="step3" class="card" style="display:none">
+    <div class="card-header"><div class="card-title">Step 3 — Confirm & Pay</div></div>
+    <div class="card-body">
+      <div class="alert alert-info" style="margin-bottom:16px">🔒 Your payment is held in escrow until the physical vehicle matches its Digital Condition Passport. You confirm delivery before funds are released.</div>
+      <div id="finalSummary" style="margin-bottom:20px"></div>
+      <button class="btn btn-primary btn-full btn-lg" id="payBtn" onclick="createEscrow()">
+        🔒 Deposit to Escrow
+      </button>
+      <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)">Powered by Paystack · Funds held securely</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:20px">
+    <a href="index.html" style="font-size:13px;color:var(--muted)">← Back to dashboard</a>
+  </div>
+</div>
+
+<script src="/frontend/shared/config.js"></script>
+<script>
+  Auth.requireAuth(['private_owner','fleet_owner']);
+  let currentStep = 1;
+  let verifiedDCP = null;
+  const FX_RATE = 1600;
+
+  function goStep(n) {
+    document.getElementById('step1').style.display = n===1?'block':'none';
+    document.getElementById('step2').style.display = n===2?'block':'none';
+    document.getElementById('step3').style.display = n===3?'block':'none';
+    [1,2,3].forEach(i => {
+      const dot = document.getElementById('sd'+i);
+      dot.className = 'step-dot' + (i<n?' done':i===n?' active':'');
+      if (i<3) document.getElementById('sl'+i).className = 'step-line'+(i<n?' done':'');
+    });
+    currentStep = n;
+  }
+
+  async function verifyDCP() {
+    const id = document.getElementById('dcpId').value.trim();
+    const err = document.getElementById('errorMsg');
+    if (!id) { err.textContent='Enter a DCP ID'; err.style.display='flex'; return; }
+    err.style.display = 'none';
+    const data = await API.get(`/dcp/verify/${id}`);
+    if (data?.success && data.data?.is_valid) {
+      verifiedDCP = data.data;
+      document.getElementById('dcp-vehicle-name').textContent = `${data.data.year||''} ${data.data.make||''} ${data.data.model||''}`.trim();
+      document.getElementById('dcp-vin-display').textContent = 'VIN: ' + (data.data.vin||'—');
+      document.getElementById('dcp-score-display').textContent = data.data.score||'—';
+      document.getElementById('dcpPreview').style.display = 'block';
+      UI.toast('DCP verified ✓', 'success');
+      setTimeout(() => goStep(2), 800);
+    } else {
+      err.textContent = 'DCP not found or invalid. Check the ID and try again.';
+      err.style.display = 'flex';
+    }
+  }
+
+  function updateAmountPreview() {
+    const amt = parseFloat(document.getElementById('amountUSD').value)||0;
+    document.getElementById('ngnPreview').textContent = UI.formatNGN(amt*FX_RATE);
+    document.getElementById('fee-amount').textContent = UI.formatUSD(amt);
+    document.getElementById('fee-platform').textContent = '-' + UI.formatUSD(amt*0.015);
+    document.getElementById('fee-seller').textContent = UI.formatUSD(amt - amt*0.015);
+  }
+
+  function goStep3() {
+    const seller = document.getElementById('sellerName').value.trim();
+    const amount = parseFloat(document.getElementById('amountUSD').value);
+    if (!seller || !amount) { UI.toast('Fill in all fields','error'); return; }
+    const v = verifiedDCP;
+    document.getElementById('finalSummary').innerHTML = `
+      <div style="display:grid;gap:8px">
+        <div class="card" style="padding:14px"><div style="font-size:13px;font-weight:700;margin-bottom:4px">${v?.year||''} ${v?.make||''} ${v?.model||''}</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted)">VIN: ${v?.vin||'—'} · DCP Score: ${v?.score||'—'}/100</div></div>
+        <div style="display:grid;gap:6px;font-size:13px">
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Seller</span><span>${seller}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Amount</span><span style="font-weight:700">${UI.formatUSD(amount)}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0"><span style="color:var(--muted)">NGN (~)</span><span>${UI.formatNGN(amount*FX_RATE)}</span></div>
+        </div>
+      </div>`;
+    goStep(3);
+  }
+
+  async function createEscrow() {
+    const user = Auth.getUser();
+    const amount = parseFloat(document.getElementById('amountUSD').value);
+    const seller = document.getElementById('sellerName').value.trim();
+    UI.btnLoading('payBtn', true);
+    const data = await API.post('/escrow/create', {
+      dcp_id: document.getElementById('dcpId').value.trim(),
+      vin: verifiedDCP?.vin || '',
+      buyer: { name: user.full_name, email: user.email || '', phone: user.phone || '' },
+      seller: { name: seller },
+      amount_usd: amount,
+      fx_rate: FX_RATE
+    });
+    if (data?.success) {
+      UI.toast('Escrow created! ' + data.data?.escrow_id, 'success');
+      localStorage.setItem('current_escrow', data.data?.escrow_id);
+      setTimeout(() => window.location.href = `../pages/escrow.html?id=${data.data?.escrow_id}`, 1200);
+    } else {
+      UI.toast(data?.detail || 'Failed to create escrow', 'error');
+      UI.btnLoading('payBtn', false, '🔒 Deposit to Escrow');
+    }
+  }
+</script>
+</body>
+</html>

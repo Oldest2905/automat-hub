@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scan DCP — The Automat Hub</title>
+  <link rel="stylesheet" href="../shared/styles.css"/>
+  <style>
+    body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:var(--bg);text-align:center}
+    .scan-box{width:260px;height:260px;border:2px solid var(--orange);border-radius:16px;position:relative;margin:24px auto;overflow:hidden;background:#000}
+    .scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--orange),transparent);animation:scanMove 2s ease-in-out infinite}
+    @keyframes scanMove{0%{top:0}100%{top:100%}}
+    #video{width:100%;height:100%;object-fit:cover}
+    .corner{position:absolute;width:20px;height:20px;border-color:var(--orange);border-style:solid}
+    .tl{top:8px;left:8px;border-width:2px 0 0 2px}
+    .tr{top:8px;right:8px;border-width:2px 2px 0 0}
+    .bl{bottom:8px;left:8px;border-width:0 0 2px 2px}
+    .br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+  </style>
+</head>
+<body>
+<div style="max-width:340px;width:100%">
+  <div style="font-size:28px;margin-bottom:8px">📷</div>
+  <h2 style="margin-bottom:8px">Scan DCP QR Code</h2>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:0">Point your camera at the QR code on the vehicle windshield</p>
+
+  <div class="scan-box">
+    <video id="video" autoplay muted playsinline></video>
+    <div class="scan-line"></div>
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+  </div>
+
+  <div id="statusMsg" style="color:var(--muted);font-size:13px;margin-bottom:16px">Starting camera...</div>
+
+  <div style="font-size:12px;color:var(--muted);margin-bottom:16px">— or enter manually —</div>
+
+  <div style="display:flex;gap:8px">
+    <input id="manualDcp" placeholder="ATH-2026-XXXXXXXX" style="flex:1" oninput="this.value=this.value.toUpperCase()"/>
+    <button class="btn btn-primary" onclick="verifyManual()">Verify</button>
+  </div>
+
+  <div style="margin-top:20px">
+    <a href="index.html" style="font-size:13px;color:var(--muted)">← Back to dashboard</a>
+  </div>
+</div>
+
+<script src="/frontend/shared/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+  Auth.requireAuth();
+  const video = document.getElementById('video');
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  let scanning = true;
+
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+      video.play();
+      document.getElementById('statusMsg').textContent = 'Scanning for QR code...';
+      requestAnimationFrame(scan);
+    } catch(e) {
+      document.getElementById('statusMsg').textContent = 'Camera not available. Use manual entry below.';
+    }
+  }
+
+  function scan() {
+    if (!scanning) return;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      if (code) {
+        scanning = false;
+        const url = code.data;
+        // Extract DCP ID from URL or use directly
+        const match = url.match(/ATH-\d{4}-[A-Z0-9]+/);
+        if (match) {
+          document.getElementById('statusMsg').textContent = '✅ QR detected! Verifying...';
+          window.location.href = `../pages/verify.html?dcp=${match[0]}`;
+        } else if (url.startsWith('http')) {
+          window.location.href = url;
+        } else {
+          document.getElementById('manualDcp').value = url;
+          verifyManual();
+        }
+        return;
+      }
+    }
+    requestAnimationFrame(scan);
+  }
+
+  async function verifyManual() {
+    const id = document.getElementById('manualDcp').value.trim();
+    if (!id) { UI.toast('Enter a DCP ID', 'warning'); return; }
+    window.location.href = `../pages/verify.html?dcp=${id}`;
+  }
+
+  startCamera();
+</script>
+</body>
+</html>

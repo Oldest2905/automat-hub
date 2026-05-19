@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Escrow Status — The Automat Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --black: #0a0a0a;
+      --orange: #E85D04;
+      --white: #f5f0e8;
+      --grey: #1a1a1a;
+      --grey-light: #888;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --mono: 'Space Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: var(--sans);
+      min-height: 100vh;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid #222;
+    }
+
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-icon {
+      width: 36px; height: 36px; background: var(--orange);
+      border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; font-size: 18px;
+    }
+    .logo-text { font-size: 14px; font-weight: 700; color: var(--white); }
+    .logo-sub { font-size: 10px; color: var(--grey-light); font-family: var(--mono); letter-spacing: 0.1em; }
+
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── ESCROW ID ── */
+    .escrow-id-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--grey);
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 28px;
+      animation: fadeUp 0.3s ease;
+    }
+
+    .escrow-id-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--grey-light);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .escrow-id-value {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--orange);
+      font-weight: 700;
+    }
+
+    /* ── PROGRESS TRACK ── */
+    .progress-section {
+      background: var(--grey);
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 28px 24px;
+      margin-bottom: 24px;
+      animation: fadeUp 0.4s ease 0.1s both;
+    }
+
+    .progress-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--grey-light);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    .progress-steps {
+      position: relative;
+    }
+
+    .progress-line {
+      position: absolute;
+      left: 18px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #2a2a2a;
+      z-index: 0;
+    }
+
+    .progress-line-fill {
+      position: absolute;
+      left: 18px;
+      top: 0;
+      width: 2px;
+      background: var(--orange);
+      z-index: 1;
+      transition: height 0.6s ease;
+    }
+
+    .progress-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding-bottom: 28px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .progress-step:last-child { padding-bottom: 0; }
+
+    .step-dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+      border: 2px solid #2a2a2a;
+      background: var(--black);
+    }
+
+    .step-dot.done { background: var(--orange); border-color: var(--orange); }
+    .step-dot.active { background: #1a1a1a; border-color: var(--orange); animation: pulse 1.5s infinite; }
+    .step-dot.pending { background: var(--black); border-color: #333; }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(232,93,4,0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(232,93,4,0); }
+    }
+
+    .step-content { padding-top: 6px; }
+
+    .step-name {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .step-name.done { color: var(--white); }
+    .step-name.active { color: var(--orange); }
+    .step-name.pending { color: var(--grey-light); }
+
+    .step-desc {
+      font-size: 12px;
+      color: var(--grey-light);
+      margin-top: 3px;
+      line-height: 1.5;
+    }
+
+    .step-time {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--grey-light);
+      margin-top: 4px;
+    }
+
+    /* ── AMOUNT CARD ── */
+    .amount-card {
+      background: var(--grey);
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 24px;
+      animation: fadeUp 0.4s ease 0.2s both;
+    }
+
+    .amount-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #222;
+    }
+
+    .amount-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--grey-light);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .amount-value {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .amount-breakdown {
+      padding: 16px 24px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .breakdown-label { color: var(--grey-light); }
+    .breakdown-value { font-family: var(--mono); font-weight: 700; }
+
+    .breakdown-row.total {
+      border-top: 1px solid #2a2a2a;
+      padding-top: 10px;
+      margin-top: 2px;
+    }
+
+    .breakdown-row.total .breakdown-value { color: var(--green); }
+
+    /* ── PARTIES ── */
+    .parties-card {
+      background: var(--grey);
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      animation: fadeUp 0.4s ease 0.3s both;
+    }
+
+    .party-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--grey-light);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .party-name { font-size: 14px; font-weight: 700; }
+
+    /* ── PROTOCOL GUARANTEE ── */
+    .guarantee {
+      background: rgba(232,93,4,0.05);
+      border: 1px solid rgba(232,93,4,0.2);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 12px;
+      color: var(--grey-light);
+      line-height: 1.6;
+      animation: fadeUp 0.4s ease 0.4s both;
+      text-align: center;
+    }
+
+    .guarantee strong { color: var(--orange); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #222;
+      border-top-color: var(--orange);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--grey-light);
+      letter-spacing: 0.1em;
+    }
+
+    @media (max-width: 480px) {
+      .header { padding: 16px 20px; }
+      .parties-card { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <a href="https://automatcorp.org.ng" class="logo">
+    <div class="logo-icon">🚗</div>
+    <div>
+      <div class="logo-text">The Automat Hub</div>
+      <div class="logo-sub">ESCROW PROTOCOL</div>
+    </div>
+  </a>
+  <div style="font-family: var(--mono); font-size: 10px; color: var(--grey-light); letter-spacing: 0.1em;">
+    ESCROW STATUS
+  </div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading escrow status...</div>
+</div>
+
+<div class="container" id="content" style="display:none;">
+
+  <!-- ESCROW ID -->
+  <div class="escrow-id-bar">
+    <div>
+      <div class="escrow-id-label">Escrow Reference</div>
+      <div class="escrow-id-value" id="escrowIdDisplay">ESC-2026---------</div>
+    </div>
+    <div style="font-family: var(--mono); font-size: 10px; color: var(--grey-light);">
+      VIN: <span id="vinDisplay" style="color: var(--white);">---</span>
+    </div>
+  </div>
+
+  <!-- PROGRESS STEPS -->
+  <div class="progress-section">
+    <div class="progress-title">Transaction Progress</div>
+    <div class="progress-steps" id="progressSteps">
+      <div class="progress-line"></div>
+      <div class="progress-line-fill" id="progressFill" style="height: 0%"></div>
+
+      <div class="progress-step" id="step-initiated">
+        <div class="step-dot pending" id="dot-initiated">💼</div>
+        <div class="step-content">
+          <div class="step-name pending" id="name-initiated">Escrow Created</div>
+          <div class="step-desc">Escrow deal created. Awaiting buyer deposit.</div>
+          <div class="step-time" id="time-initiated"></div>
+        </div>
+      </div>
+
+      <div class="progress-step" id="step-funded">
+        <div class="step-dot pending" id="dot-funded">💰</div>
+        <div class="step-content">
+          <div class="step-name pending" id="name-funded">Funds Deposited</div>
+          <div class="step-desc">Buyer funds received and held securely in escrow.</div>
+          <div class="step-time" id="time-funded"></div>
+        </div>
+      </div>
+
+      <div class="progress-step" id="step-dcp">
+        <div class="step-dot pending" id="dot-dcp">🛡️</div>
+        <div class="step-content">
+          <div class="step-name pending" id="name-dcp">DCP Verified</div>
+          <div class="step-desc">Physical vehicle confirmed to match Digital Condition Passport.</div>
+          <div class="step-time" id="time-dcp"></div>
+        </div>
+      </div>
+
+      <div class="progress-step" id="step-delivery">
+        <div class="step-dot pending" id="dot-delivery">🚗</div>
+        <div class="step-content">
+          <div class="step-name pending" id="name-delivery">Delivery Confirmed</div>
+          <div class="step-desc">Buyer confirms vehicle received. Funds released to seller.</div>
+          <div class="step-time" id="time-delivery"></div>
+        </div>
+      </div>
+
+      <div class="progress-step" id="step-completed">
+        <div class="step-dot pending" id="dot-completed">✅</div>
+        <div class="step-content">
+          <div class="step-name pending" id="name-completed">Transaction Complete</div>
+          <div class="step-desc">Funds settled. Protocol complete. Drive Verified.</div>
+          <div class="step-time" id="time-completed"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AMOUNT -->
+  <div class="amount-card">
+    <div class="amount-header">
+      <div class="amount-label">Transaction Amount</div>
+      <div class="amount-value" id="amountDisplay">$0.00</div>
+    </div>
+    <div class="amount-breakdown">
+      <div class="breakdown-row">
+        <span class="breakdown-label">Transaction Amount</span>
+        <span class="breakdown-value" id="amountUsd">$0.00</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Platform Fee (1.5%)</span>
+        <span class="breakdown-value" id="platformFee">$0.00</span>
+      </div>
+      <div class="breakdown-row total">
+        <span class="breakdown-label">Seller Receives</span>
+        <span class="breakdown-value" id="sellerNet">$0.00</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PARTIES -->
+  <div class="parties-card">
+    <div>
+      <div class="party-label">Buyer</div>
+      <div class="party-name" id="buyerName">---</div>
+    </div>
+    <div>
+      <div class="party-label">Seller</div>
+      <div class="party-name" id="sellerName">---</div>
+    </div>
+  </div>
+
+  <!-- GUARANTEE -->
+  <div class="guarantee">
+    <strong>The Automat Protocol Guarantee</strong><br>
+    Funds are held securely and released <strong>only</strong> when the physical vehicle
+    matches its Digital Condition Passport and delivery is confirmed.
+    No handshakes. No hope. Just protocol.
+  </div>
+
+</div>
+<script src="/frontend/shared/config.js"></script>
+<script>
+  const API_BASE = 'https://automatcorp.org.ng/api';
+
+  const STATUS_ORDER = [
+    'INITIATED', 'FUNDED', 'DCP_MATCHED', 'DELIVERY_CONFIRMED', 'COMPLETED'
+  ];
+
+  const STEP_MAP = {
+    'INITIATED': 'initiated',
+    'FUNDED': 'funded',
+    'DCP_MATCHED': 'dcp',
+    'DELIVERY_CONFIRMED': 'delivery',
+    'COMPLETED': 'completed'
+  };
+
+  function formatDate(d) {
+    if (!d) return '';
+    return new Date(d).toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  function formatUSD(amount) {
+    return `$${parseFloat(amount || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+  }
+
+  function updateProgress(status, data) {
+    const currentIndex = STATUS_ORDER.indexOf(status);
+    if (currentIndex < 0) return;
+
+    // Fill line based on progress
+    const pct = (currentIndex / (STATUS_ORDER.length - 1)) * 100;
+    document.getElementById('progressFill').style.height = pct + '%';
+
+    STATUS_ORDER.forEach((s, i) => {
+      const stepKey = STEP_MAP[s];
+      const dot = document.getElementById(`dot-${stepKey}`);
+      const name = document.getElementById(`name-${stepKey}`);
+      const time = document.getElementById(`time-${stepKey}`);
+
+      if (i < currentIndex) {
+        dot.className = 'step-dot done';
+        name.className = 'step-name done';
+      } else if (i === currentIndex) {
+        dot.className = 'step-dot active';
+        name.className = 'step-name active';
+      } else {
+        dot.className = 'step-dot pending';
+        name.className = 'step-name pending';
+      }
+
+      // Add timestamps
+      const timeMap = {
+        'initiated': data.initiated_at,
+        'funded': data.funded_at,
+        'dcp': data.dcp_matched_at,
+        'delivery': data.delivery_confirmed_at,
+        'completed': data.completed_at
+      };
+
+      if (timeMap[stepKey] && time) {
+        time.textContent = formatDate(timeMap[stepKey]);
+      }
+    });
+  }
+
+  function getEscrowId() {
+    const urlParam = new URLSearchParams(window.location.search).get("id");
+    if (urlParam) return urlParam;
+    const parts = window.location.pathname.split('/');
+    return parts[parts.length - 1];
+  }
+
+  async function loadEscrow() {
+    const escrowId = getEscrowId();
+
+    try {
+      const res = await fetch(`${API_BASE}/escrow/${escrowId}`);
+      if (!res.ok) throw new Error('Not found');
+      const response = await res.json();
+      const d = response.data || response;
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+
+      document.getElementById('escrowIdDisplay').textContent = d.escrow_id || escrowId;
+      document.getElementById('vinDisplay').textContent = d.vin || '---';
+      document.getElementById('buyerName').textContent = d.buyer_name || '---';
+      document.getElementById('sellerName').textContent = d.seller_name || '---';
+      document.getElementById('amountDisplay').textContent = formatUSD(d.amount_usd);
+      document.getElementById('amountUsd').textContent = formatUSD(d.amount_usd);
+      document.getElementById('platformFee').textContent = formatUSD(d.platform_fee_amount);
+      document.getElementById('sellerNet').textContent = formatUSD(d.seller_net_amount);
+
+      updateProgress(d.status, d);
+
+    } catch (err) {
+      document.getElementById('loading').innerHTML =
+        '<div style="text-align:center;padding:60px 20px;">' +
+        '<div style="font-size:48px;margin-bottom:16px;">⚠️</div>' +
+        '<div style="font-size:20px;font-weight:800;margin-bottom:8px;">Escrow Not Found</div>' +
+        '<div style="color:#888;font-size:14px;">Contact support@automatcorp.org.ng</div>' +
+        '</div>';
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', loadEscrow);
+</script>
+</body>
+</html>

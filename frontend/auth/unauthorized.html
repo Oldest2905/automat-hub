@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Access Denied — The Automat Hub</title>
+  <link rel="stylesheet" href="../shared/styles.css"/>
+  <style>
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px}
+  </style>
+</head>
+<body>
+  <div>
+    <div style="font-size:64px;margin-bottom:20px">🔒</div>
+    <h1 style="margin-bottom:12px">Access Denied</h1>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:28px">You do not have permission to view this page.</p>
+    <div style="display:flex;gap:12px;justify-content:center">
+      <button class="btn btn-primary" onclick="window.history.back()">← Go Back</button>
+      <button class="btn btn-ghost" onclick="Auth.logout()">Sign Out</button>
+    </div>
+  </div>
+</body>
+</html>

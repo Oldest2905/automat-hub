@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Connect Your Vehicle — The Automat Hub</title>
+  <link rel="stylesheet" href="../shared/styles.css"/>
+  <style>
+    .method-card {
+      background:var(--surface);border:2px solid var(--border);border-radius:16px;
+      padding:28px;cursor:pointer;transition:all 0.2s;text-align:center;
+    }
+    .method-card:hover { border-color:var(--orange); transform:translateY(-2px); }
+    .method-card.selected { border-color:var(--orange); background:var(--orange-dim); }
+    .method-icon { font-size:44px; margin-bottom:14px; }
+    .method-name { font-size:16px; font-weight:800; margin-bottom:6px; }
+    .method-desc { font-size:12px; color:var(--muted); line-height:1.6; }
+    .method-tag {
+      display:inline-block; margin-top:10px;
+      font-family:var(--mono); font-size:9px; padding:3px 10px;
+      border-radius:10px; letter-spacing:0.08em;
+    }
+    .mfr-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; margin-top:16px; }
+    .mfr-card {
+      background:var(--surface);border:1px solid var(--border);border-radius:10px;
+      padding:14px 10px;text-align:center;cursor:pointer;transition:all 0.2s;
+    }
+    .mfr-card:hover { border-color:var(--orange); }
+    .mfr-card.selected { border-color:var(--orange); background:var(--orange-dim); }
+    .mfr-card.popular::after {
+      content:'Popular';display:block;font-family:var(--mono);font-size:8px;
+      color:var(--green);letter-spacing:0.06em;margin-top:4px;
+    }
+    .mfr-logo { font-size:24px; margin-bottom:6px; }
+    .mfr-name { font-size:11px; font-weight:600; }
+    .step-header { display:flex;align-items:center;gap:12px;margin-bottom:20px; }
+    .step-num { width:28px;height:28px;border-radius:50%;background:var(--orange);color:white;font-family:var(--mono);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+    .obd-step { display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--border); }
+    .obd-step:last-child { border-bottom:none; }
+    .obd-step-icon { font-size:24px;flex-shrink:0;width:36px;text-align:center; }
+    .adapter-card { background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:8px; }
+    .adapter-name { font-size:13px;font-weight:700;margin-bottom:2px; }
+    .adapter-price { font-family:var(--mono);font-size:11px;color:var(--orange); }
+    .adapter-rating { font-size:11px;color:var(--muted); }
+  </style>
+</head>
+<body>
+<div style="max-width:680px;margin:0 auto;padding:40px 20px 80px">
+
+  <!-- HEADER -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px">
+    <button onclick="goBack()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0">←</button>
+    <div>
+      <h2 style="margin:0">Connect Your Vehicle</h2>
+      <div style="font-size:13px;color:var(--muted)" id="vehicleLabel">Loading vehicle...</div>
+    </div>
+  </div>
+
+  <div id="errorMsg" class="alert alert-error" style="display:none;margin-bottom:16px"></div>
+  <div id="successMsg" class="alert alert-success" style="display:none;margin-bottom:16px"></div>
+
+  <!-- STEP 1: Choose Method -->
+  <div id="stepMethod">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <div>
+        <div style="font-size:15px;font-weight:700">Choose Connection Method</div>
+        <div style="font-size:12px;color:var(--muted)">Two ways to track your vehicle's health</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="method-card" onclick="selectMethod('obd')" id="methodOBD">
+        <div class="method-icon">🔌</div>
+        <div class="method-name">OBD-II Adapter</div>
+        <div class="method-desc">Plug a small Bluetooth dongle into your car's OBD port. Works on any car made after 1996.</div>
+        <div class="method-tag" style="background:var(--green-dim);color:var(--green)">WORKS ON ALL CARS</div>
+      </div>
+      <div class="method-card" onclick="selectMethod('manufacturer')" id="methodMFR">
+        <div class="method-icon">🏭</div>
+        <div class="method-name">Manufacturer App</div>
+        <div class="method-desc">Log in with your Toyota, BMW, or Ford account. No hardware needed — richer data.</div>
+        <div class="method-tag" style="background:var(--blue-dim);color:var(--blue)">NO HARDWARE NEEDED</div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="goToStep2()" id="methodNextBtn" disabled>
+      Continue →
+    </button>
+  </div>
+
+  <!-- STEP 2A: OBD Setup Guide -->
+  <div id="stepOBD" style="display:none">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div>
+        <div style="font-size:15px;font-weight:700">OBD-II Adapter Setup</div>
+        <div style="font-size:12px;color:var(--muted)">Follow these steps to connect your adapter</div>
+      </div>
+    </div>
+
+    <div class="card mb-6">
+      <div class="card-header"><div class="card-title">📋 How To Set Up</div></div>
+      <div class="card-body" id="obdSteps">Loading...</div>
+    </div>
+
+    <div class="card mb-6">
+      <div class="card-header"><div class="card-title">🛒 Recommended Adapters</div></div>
+      <div class="card-body" id="obdAdapters">Loading...</div>
+    </div>
+
+    <div style="background:var(--surface2);border-radius:10px;padding:16px;margin-bottom:20px">
+      <div class="label" style="margin-bottom:8px">Register Adapter Bluetooth ID</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">After pairing in your phone's Bluetooth settings, enter the adapter's device address:</div>
+      <div style="display:flex;gap:8px">
+        <input id="adapterId" placeholder="e.g. 00:1D:A5:68:98:8B" style="flex:1"/>
+        <button class="btn btn-primary" onclick="registerOBD()">Register</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" onclick="goToStep1()">← Back</button>
+    </div>
+  </div>
+
+  <!-- STEP 2B: Manufacturer Selection -->
+  <div id="stepManufacturer" style="display:none">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div>
+        <div style="font-size:15px;font-weight:700">Select Your Car Brand</div>
+        <div style="font-size:12px;color:var(--muted)">We support 15 manufacturers. Log in with your account.</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div class="label" style="margin-bottom:8px">POPULAR IN NIGERIA</div>
+      <div class="mfr-grid" id="popularMfrs">Loading...</div>
+    </div>
+
+    <details style="margin-bottom:20px">
+      <summary style="font-size:13px;color:var(--muted);cursor:pointer;padding:8px 0">Show all supported brands</summary>
+      <div class="mfr-grid" id="allMfrs" style="margin-top:12px">Loading...</div>
+    </details>
+
+    <button class="btn btn-primary btn-full" id="connectMfrBtn" onclick="connectManufacturer()" disabled>
+      Connect — Log in with Manufacturer Account →
+    </button>
+
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="btn btn-ghost" onclick="goToStep1()">← Back</button>
+    </div>
+  </div>
+
+  <!-- SUCCESS STATE -->
+  <div id="stepSuccess" style="display:none;text-align:center;padding:40px 20px">
+    <div style="font-size:56px;margin-bottom:16px">✅</div>
+    <h2 style="margin-bottom:8px">Vehicle Connected!</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:24px" id="successDetail">Your vehicle is now connected and will be scanned every hour.</p>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn btn-primary" onclick="window.location.href='index.html'">Go to Dashboard</button>
+      <button class="btn btn-ghost" onclick="window.location.href='scan.html'">Scan a DCP</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="/frontend/shared/config.js"></script>
+<script>
+  Auth.requireAuth(['private_owner','fleet_owner','admin']);
+
+  const params = new URLSearchParams(window.location.search);
+  const vehicleId = params.get('vehicle_id') || '';
+  const vehicleName = params.get('name') || 'Your Vehicle';
+  let selectedMethod = '';
+  let selectedManufacturer = '';
+  let manufacturerData = null;
+
+  document.getElementById('vehicleLabel').textContent = vehicleName;
+
+  // Check if returning from manufacturer OAuth
+  if (params.get('connected')) {
+    document.getElementById('stepMethod').style.display = 'none';
+    document.getElementById('stepSuccess').style.display = 'block';
+    document.getElementById('successDetail').textContent =
+      `Your ${params.get('connected')} account is linked. Vehicle health will sync every hour automatically.`;
+  }
+
+  function goBack() { window.location.href = 'index.html'; }
+
+  function selectMethod(method) {
+    selectedMethod = method;
+    document.getElementById('methodOBD').classList.toggle('selected', method==='obd');
+    document.getElementById('methodMFR').classList.toggle('selected', method==='manufacturer');
+    document.getElementById('methodNextBtn').disabled = false;
+  }
+
+  function goToStep1() {
+    document.getElementById('stepOBD').style.display = 'none';
+    document.getElementById('stepManufacturer').style.display = 'none';
+    document.getElementById('stepMethod').style.display = 'block';
+  }
+
+  async function goToStep2() {
+    document.getElementById('stepMethod').style.display = 'none';
+    if (selectedMethod === 'obd') {
+      document.getElementById('stepOBD').style.display = 'block';
+      loadOBDGuide();
+    } else {
+      document.getElementById('stepManufacturer').style.display = 'block';
+      loadManufacturers();
+    }
+  }
+
+  async function loadOBDGuide() {
+    const data = await API.get('/manufacturer/list');
+    if (!data?.success) return;
+    const guide = data.obd_guide;
+
+    document.getElementById('obdSteps').innerHTML = guide.steps.map(s => `
+      <div class="obd-step">
+        <div class="obd-step-icon">${s.icon}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px">Step ${s.step}: ${s.title}</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6">${s.detail}</div>
+        </div>
+      </div>
+    `).join('');
+
+    document.getElementById('obdAdapters').innerHTML = guide.recommended_adapters.map(a => `
+      <div class="adapter-card">
+        <div class="adapter-name">${a.name}</div>
+        <div style="display:flex;gap:12px;margin-top:4px">
+          <span class="adapter-price">${a.price}</span>
+          <span class="adapter-rating">${a.rating}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function loadManufacturers() {
+    const data = await API.get('/manufacturer/list');
+    if (!data?.success) return;
+    manufacturerData = data;
+
+    const popular = data.popular_in_nigeria || [];
+    const all = data.all_supported || [];
+
+    document.getElementById('popularMfrs').innerHTML = popular.map(m => `
+      <div class="mfr-card popular" onclick="selectMfr('${m.id}', this)">
+        <div class="mfr-logo">${m.logo}</div>
+        <div class="mfr-name">${m.name}</div>
+      </div>
+    `).join('');
+
+    document.getElementById('allMfrs').innerHTML = all.map(m => `
+      <div class="mfr-card ${m.popular_in_nigeria?'popular':''}" onclick="selectMfr('${m.id}', this)">
+        <div class="mfr-logo">${m.logo}</div>
+        <div class="mfr-name">${m.name}</div>
+      </div>
+    `).join('');
+  }
+
+  function selectMfr(id, el) {
+    selectedManufacturer = id;
+    document.querySelectorAll('.mfr-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    // Also select in the other list if present
+    document.querySelectorAll(`.mfr-card[onclick*="${id}"]`).forEach(c => c.classList.add('selected'));
+    document.getElementById('connectMfrBtn').disabled = false;
+    document.getElementById('connectMfrBtn').textContent = `Connect ${el.querySelector('.mfr-name').textContent} →`;
+  }
+
+  async function connectManufacturer() {
+    if (!selectedManufacturer || !vehicleId) {
+      UI.toast('Select a manufacturer and ensure vehicle ID is set', 'error');
+      return;
+    }
+    UI.btnLoading('connectMfrBtn', true);
+    const data = await API.get(`/manufacturer/connect/${selectedManufacturer}?vehicle_id=${vehicleId}`);
+    if (data?.success) {
+      if (data.demo_mode) {
+        // Demo mode - simulate connection
+        UI.toast(`Demo: ${data.manufacturer} connection simulated`, 'info');
+        document.getElementById('stepManufacturer').style.display = 'none';
+        document.getElementById('stepSuccess').style.display = 'block';
+        document.getElementById('successDetail').textContent =
+          `Demo mode: ${data.manufacturer} data connection simulated. In production, you would log in with your ${data.manufacturer} account.`;
+      } else {
+        // Real OAuth - redirect to manufacturer login
+        window.location.href = data.oauth_url;
+      }
+    } else {
+      UI.toast(data?.detail || 'Connection failed. Try OBD adapter instead.', 'error');
+      UI.btnLoading('connectMfrBtn', false, `Connect ${selectedManufacturer} →`);
+    }
+  }
+
+  async function registerOBD() {
+    const adapterId = document.getElementById('adapterId').value.trim();
+    if (!adapterId) { UI.toast('Enter the adapter Bluetooth address', 'error'); return; }
+    if (!vehicleId) { UI.toast('No vehicle ID. Go back and select a vehicle.', 'error'); return; }
+
+    const data = await API.post(`/manufacturer/connect-obd?vehicle_id=${vehicleId}&adapter_id=${encodeURIComponent(adapterId)}`, {});
+    if (data?.success) {
+      document.getElementById('stepOBD').style.display = 'none';
+      document.getElementById('stepSuccess').style.display = 'block';
+      document.getElementById('successDetail').textContent =
+        'OBD adapter registered. Open the Automat Hub mobile app and enable Bluetooth scanning.';
+    } else {
+      UI.toast(data?.detail || 'Failed to register adapter', 'error');
+    }
+  }
+</script>
+</body>
+</html>
