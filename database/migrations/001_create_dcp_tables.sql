@@ -79,7 +79,7 @@ END
 $$;
 
 -- Grant necessary permissions to application user
-GRANT CONNECT ON DATABASE automat_hub TO automat_api;
+GRANT CONNECT ON DATABASE postgres TO automat_api;
 GRANT USAGE ON SCHEMA public TO automat_api;
 GRANT SELECT, INSERT ON dcp_hash_ledger TO automat_api;
 GRANT SELECT, INSERT, UPDATE ON dcp_records TO automat_api;
