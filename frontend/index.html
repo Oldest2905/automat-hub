@@ -2817,7 +2817,7 @@
     // Point this to your Render backend URL. If running locally, it falls back to localhost.
     const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'http://localhost:8000'
-      : 'https://your-automat-api.onrender.com'; // <-- REPLACE THIS WITH YOUR RENDER URL
+      : 'https://automat-hub.onrender.com';
     let TOKEN = localStorage.getItem('tah_token') || '';
     let USER = JSON.parse(localStorage.getItem('tah_user') || 'null');
     let CUR_PAGE = 'dashboard';
