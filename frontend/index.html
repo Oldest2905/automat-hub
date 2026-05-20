@@ -1668,9 +1668,9 @@
         </div>
       </nav>
 
-      <nav class="nav-grp">
+      <nav class="nav-grp" id="grp-vehicles">
         <div class="nav-lbl">Vehicle Linking</div>
-        <div class="ni" onclick="go('my-vehicles')">
+        <div class="ni" id="nav-my-vehicles" onclick="go('my-vehicles')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="1" y="3" width="15" height="13" />
             <path d="M16 8h4l3 3v3h-7V8z" />
@@ -1679,7 +1679,7 @@
           </svg>
           My Vehicles
         </div>
-        <div class="ni" onclick="go('link-vehicle')">
+        <div class="ni" id="nav-link-vehicle" onclick="go('link-vehicle')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
@@ -1688,7 +1688,7 @@
         </div>
       </nav>
 
-      <nav class="nav-grp">
+      <nav class="nav-grp" id="grp-dcp">
         <div class="nav-lbl">DCP Protocol</div>
         <div class="ni" onclick="go('dcp-issue')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1706,7 +1706,7 @@
         </div>
       </nav>
 
-      <nav class="nav-grp">
+      <nav class="nav-grp" id="grp-escrow">
         <div class="nav-lbl">Escrow</div>
         <div class="ni" onclick="go('escrow-new')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1723,8 +1723,8 @@
       </nav>
 
       <nav class="nav-grp" id="fleet-grp">
-        <div class="nav-lbl">Fleet</div>
-        <div class="ni" onclick="go('fleet')">
+        <div class="nav-lbl">Fleet & Tracking</div>
+        <div class="ni" id="nav-fleet-portal" onclick="go('fleet')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
             <circle cx="9" cy="7" r="4" />
@@ -1734,7 +1734,7 @@
           Fleet Portal
           <span class="ni-badge" id="fleet-alert-badge" style="display:none">0</span>
         </div>
-        <div class="ni" onclick="go('fleet-tracking')">
+        <div class="ni" id="nav-fleet-tracking" onclick="go('fleet-tracking')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" />
             <line x1="2" y1="12" x2="22" y2="12" />
@@ -1744,7 +1744,7 @@
         </div>
       </nav>
 
-      <nav class="nav-grp">
+      <nav class="nav-grp" id="grp-operations">
         <div class="nav-lbl">Operations</div>
         <div class="ni" onclick="go('workshop')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1776,9 +1776,9 @@
         </div>
       </nav>
 
-      <nav class="nav-grp">
+      <nav class="nav-grp" id="grp-account">
         <div class="nav-lbl">Account</div>
-        <div class="ni" onclick="go('subscription')">
+        <div class="ni" id="nav-subscription" onclick="go('subscription')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
@@ -1953,7 +1953,7 @@
             <p style="font-size:.78rem;color:var(--c-text3);margin-top:2px">Every vehicle you own, linked to your DCP,
               subscription, and escrow history</p>
           </div>
-          <button class="btn btn-orange btn-sm" onclick="go('link-vehicle')">+ Link Vehicle</button>
+          <button class="btn btn-orange btn-sm" id="btn-link-vehicle-header" onclick="go('link-vehicle')">+ Link Vehicle</button>
         </div>
         <div id="my-vehicles-list"
           style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">
@@ -2365,7 +2365,12 @@
             <button class="btn btn-orange btn-sm" onclick="go('link-vehicle')">Add Vehicle</button>
           </div>
         </div>
-        <div class="stats-row" id="fleet-stats"></div>
+        <div style="display:flex; gap:14px; margin-bottom:16px; flex-wrap:wrap;">
+          <div class="stats-row" id="fleet-stats" style="flex:1; margin-bottom:0;"></div>
+          <div class="card" style="width:250px; height:180px; display:flex; align-items:center; justify-content:center;">
+            <canvas id="fleetHealthChart"></canvas>
+          </div>
+        </div>
         <div class="card">
           <div class="card-hdr">
             <div class="card-title">All Vehicles</div><button class="btn btn-ghost btn-sm"
@@ -2437,7 +2442,7 @@
       <div class="page" id="pg-workshop">
         <div class="eyebrow">Workshop Hub</div>
         <div class="g2">
-          <div class="card">
+          <div class="card" id="ws-register-card">
             <div class="card-hdr">
               <div class="card-title">Register Workshop</div>
               <div class="card-sub">8% commission. Free to join. You earn 92% of every job.</div>
@@ -2528,18 +2533,6 @@
       <!-- ── ADMIN ──────────────────────────────────────── -->
       <div class="page" id="pg-admin">
         <div class="eyebrow">Platform Administration</div>
-        
-        <div class="card" style="margin-bottom:20px; background:var(--c-orange-glow); border-color:var(--c-orange);">
-          <div class="card-hdr" style="margin-bottom:8px;">
-            <div class="card-title" style="color:var(--c-orange); font-size: 1.1rem;">🚀 Investor Presentation Mode</div>
-          </div>
-          <p style="font-size: .8rem; color: var(--c-text); margin-bottom: 16px; line-height: 1.5;">
-            Run a fully automated simulation of the Trust Protocol lifecycle. This will automatically walk through:<br>
-            <strong>Vehicle Linking &rarr; OBD Fault Detection &rarr; Workshop Repair &rarr; Immutable DCP Issuance &rarr; Trustless Escrow Settlement.</strong>
-          </p>
-          <button class="btn btn-orange" onclick="runInvestorDemo()">Start End-to-End Automated Demo</button>
-        </div>
-
         <div class="stats-row" id="admin-stats"></div>
         <div class="g2" style="margin-top:16px">
           <div class="card">
@@ -2965,16 +2958,53 @@
     // ── BOOT ─────────────────────────────────────────────────────
     function bootApp() {
       if (!USER) return;
+      const r = USER.role || 'private_owner';
       document.getElementById('s-av').textContent = (USER.full_name || 'U')[0].toUpperCase();
       document.getElementById('s-name').textContent = USER.full_name || 'User';
-      document.getElementById('s-role').textContent = (USER.role || '').replace('_', ' ');
+      document.getElementById('s-role').textContent = r.replace('_', ' ');
       document.getElementById('sub-pill').textContent = USER.subscription_plan || 'Free';
 
-      // Role-based nav
-      if (['fleet_owner', 'admin'].includes(USER.role)) document.getElementById('fleet-grp').style.display = '';
-      else document.getElementById('fleet-grp').style.display = 'none';
-      if (USER.role === 'reseller') document.getElementById('reseller-grp').style.display = '';
-      if (USER.role === 'admin') document.getElementById('admin-grp').style.display = '';
+      // Role-based nav gating (Strict RBAC implementation)
+      const safeHide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+      const safeShow = (id) => { const el = document.getElementById(id); if (el) el.style.display = ''; };
+
+      // 1. Hide all restricted elements by default
+      safeHide('grp-vehicles'); safeHide('grp-dcp'); safeHide('grp-escrow');
+      safeHide('fleet-grp'); safeHide('nav-fleet-portal'); safeHide('nav-fleet-tracking');
+      safeHide('grp-operations'); safeHide('reseller-grp'); safeHide('admin-grp');
+      safeHide('nav-subscription');
+      safeHide('nav-my-vehicles'); safeHide('nav-link-vehicle');
+
+      // 2. Unhide elements explicitly permitted by role
+      if (r === 'admin') {
+        safeShow('grp-vehicles'); safeShow('grp-dcp'); safeShow('grp-escrow');
+        safeShow('fleet-grp'); safeShow('nav-fleet-portal'); safeShow('nav-fleet-tracking');
+        safeShow('grp-operations'); safeShow('reseller-grp'); safeShow('admin-grp');
+        safeShow('nav-subscription');
+        safeShow('nav-my-vehicles'); safeShow('nav-link-vehicle');
+      } else if (r === 'fleet_owner') {
+        safeShow('grp-vehicles'); safeShow('grp-dcp'); safeShow('grp-escrow');
+        safeShow('fleet-grp'); safeShow('nav-fleet-portal'); safeShow('nav-fleet-tracking');
+        safeShow('grp-operations'); safeShow('nav-subscription');
+        safeShow('nav-my-vehicles'); safeShow('nav-link-vehicle');
+      } else if (r === 'private_owner') {
+        safeShow('grp-vehicles'); safeShow('nav-my-vehicles'); // NO link vehicle, NO DCP issue
+        safeShow('grp-escrow');
+        safeShow('fleet-grp'); safeShow('nav-fleet-tracking'); // Access to tracking only
+        safeShow('grp-operations'); safeShow('nav-subscription');
+      } else if (r === 'reseller') {
+        safeShow('grp-dcp'); safeShow('grp-escrow'); safeShow('reseller-grp');
+        safeShow('nav-subscription');
+      } else if (r === 'mechanic') {
+        safeShow('grp-dcp'); safeShow('grp-operations');
+      }
+
+      // Hide Workshop Registration from Private/Fleet owners
+      if (r === 'private_owner' || r === 'fleet_owner') {
+        safeHide('ws-register-card');
+      } else {
+        safeShow('ws-register-card');
+      }
 
       go('dashboard');
     }
@@ -3072,6 +3102,8 @@
 
     // ── MY VEHICLES ──────────────────────────────────────────────
     async function loadMyVehicles() {
+      document.getElementById('btn-link-vehicle-header').style.display = USER?.role === 'private_owner' ? 'none' : '';
+      
       const r = await api('GET', '/fleet/dashboard');
       const vehicles = r?.d?.vehicles || [];
       const el = document.getElementById('my-vehicles-list');
@@ -3097,7 +3129,7 @@
       </div>
       <div style="display:flex;gap:7px;margin-top:12px">
         <button class="btn btn-ghost btn-sm btn-block" onclick="showVehicleDetail('${v.vehicle_id}')">Details</button>
-        <button class="btn btn-orange btn-sm btn-block" onclick="prepDCP('${v.vin}', '${v.make}', '${v.model}', '${v.year}', '${v.colour}')">Issue DCP</button>
+        ${USER?.role !== 'private_owner' ? `<button class="btn btn-orange btn-sm btn-block" onclick="prepDCP('${v.vin}', '${v.make}', '${v.model}', '${v.year}', '${v.colour}')">Issue DCP</button>` : ''}
       </div>
     </div>`;
       }).join('');
@@ -3145,43 +3177,20 @@
       const btn = document.getElementById('scan-btn');
       btn.classList.add('loading'); btn.disabled = true;
       
-      toast('Connecting...', 'Establishing secure handshake with Manufacturer API/OBD...', 'info', 2000);
-      
       // Simulate connecting to OBD dongle or Manufacturer Cloud API
       setTimeout(() => {
-        const inputMake = document.getElementById('d-make').value.toLowerCase();
-        
-        // Simulate OEM API Data Correction
-        const realMake = "Mercedes-Benz";
-        const realModel = "G-Class";
-        const realYear = 2024;
-        
-        if (inputMake && !inputMake.includes("mercedes")) {
-           document.getElementById('d-make').value = realMake;
-           document.getElementById('d-model').value = realModel;
-           document.getElementById('d-year').value = realYear;
-           toast('Data Overridden', 'Manufacturer API corrected manual input with verified OEM data.', 'info', 3500);
-        }
-
         btn.classList.remove('loading'); btn.disabled = false;
-
-        // Auto-fill hardware telemetry data
-        document.getElementById('d-odo').value = Math.floor(Math.random() * 20000) + 5000;
-        document.getElementById('m1').value = Math.floor(Math.random() * 10) + 90;
-        document.getElementById('m2').value = Math.floor(Math.random() * 10) + 90;
-        document.getElementById('m3').value = Math.floor(Math.random() * 10) + 90;
-        document.getElementById('m4').value = Math.floor(Math.random() * 10) + 90;
-        document.getElementById('m5').value = Math.floor(Math.random() * 10) + 90;
-        document.getElementById('m6').value = Math.floor(Math.random() * 10) + 90;
         
-        // Force fault if in demo mode
-        if (window._demoFault) {
-            document.getElementById('d-faults').value = 'P0420 (Catalyst System Efficiency)';
-            window._demoFault = false;
-        } else {
-            document.getElementById('d-faults').value = Math.random() > 0.85 ? 'P0171' : '';
-        }
-
+        // Auto-fill hardware telemetry data
+        document.getElementById('d-odo').value = Math.floor(Math.random() * 60000) + 5000;
+        document.getElementById('m1').value = Math.floor(Math.random() * 15) + 85;
+        document.getElementById('m2').value = Math.floor(Math.random() * 15) + 85;
+        document.getElementById('m3').value = Math.floor(Math.random() * 15) + 85;
+        document.getElementById('m4').value = Math.floor(Math.random() * 15) + 85;
+        document.getElementById('m5').value = Math.floor(Math.random() * 15) + 85;
+        document.getElementById('m6').value = Math.floor(Math.random() * 15) + 85;
+        document.getElementById('d-faults').value = Math.random() > 0.85 ? 'P0420' : '';
+        
         // Lock fields to prevent human tampering
         const fields = ['d-make', 'd-model', 'd-year', 'd-colour', 'd-odo', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'd-faults'];
         fields.forEach(id => {
@@ -3193,8 +3202,8 @@
           }
         });
         
-        toast('Scan Complete', 'Diagnostics and manufacturer data locked securely.', 'ok');
-      }, 2500);
+        toast('OBD Scan Complete', 'Internal diagnostics fetched and locked securely.', 'ok');
+      }, 2000);
     };
 
     async function doIssueDCP(e) {
@@ -3202,22 +3211,25 @@
       hideAlert('dcp-alert');
       const faults = document.getElementById('d-faults').value.split(',').map(s => s.trim()).filter(Boolean);
       const payload = {
-        vin: document.getElementById('d-vin').value.toUpperCase(),
-        make: document.getElementById('d-make').value,
-        model: document.getElementById('d-model').value,
-        year: parseInt(document.getElementById('d-year').value) || new Date().getFullYear(),
-        colour: document.getElementById('d-colour').value,
-        odometer_km: parseInt(document.getElementById('d-odo').value, 10) || 0,
-        inspection_modules: {
+        vehicle: {
+          vin: document.getElementById('d-vin').value.toUpperCase(),
+          make: document.getElementById('d-make').value,
+          model: document.getElementById('d-model').value,
+          year: parseInt(document.getElementById('d-year').value) || new Date().getFullYear(),
+          colour: document.getElementById('d-colour').value,
+          odometer: parseInt(document.getElementById('d-odo').value, 10) || 0
+        },
+        inspection: {
           mechanical_systems: parseInt(document.getElementById('m1').value, 10) || 0,
           electrical_controls: parseInt(document.getElementById('m2').value, 10) || 0,
           structural_integrity: parseInt(document.getElementById('m3').value, 10) || 0,
           maintenance_compliance: parseInt(document.getElementById('m4').value, 10) || 0,
           hse_standards: parseInt(document.getElementById('m5').value, 10) || 0,
-          operational_technology: parseInt(document.getElementById('m6').value, 10) || 0
+          operational_technology: parseInt(document.getElementById('m6').value, 10) || 0,
+          fault_codes: faults,
+          inspector_notes: document.getElementById('d-notes').value
         },
-        fault_codes: faults,
-        inspector_notes: document.getElementById('d-notes').value
+        auditor_id: USER?.user_id || 'UNKNOWN'
       };
       const btn = document.getElementById('dcp-btn');
       btn.classList.add('loading'); btn.disabled = true;
@@ -3356,83 +3368,6 @@
       else toast('Error', r?.d?.detail || 'Failed', 'err');
     }
 
-    // ── INVESTOR DEMO ────────────────────────────────────────────
-    window.runInvestorDemo = async function() {
-      const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-      toast('Demo Started', 'Initializing Automat Hub Trust Protocol Demo...', 'info');
-      await sleep(2000);
-
-      // Step 1: Link Vehicle
-      go('link-vehicle');
-      toast('Step 1: Vehicle Linking', 'Registering a new vehicle with incorrect manual data to demonstrate API override...', 'info', 4000);
-      await sleep(1500);
-      const testVin = 'DEMO' + Math.floor(Math.random() * 1000000);
-      document.getElementById('lv-vin').value = testVin;
-      document.getElementById('lv-plate').value = 'LND-882-XY';
-      document.getElementById('lv-make').value = 'Toyota';  // Wrong manual input
-      document.getElementById('lv-model').value = 'Camry';
-      document.getElementById('lv-year').value = '2015';    // Wrong manual input
-      await sleep(3500);
-      document.getElementById('link-btn').click();
-      await sleep(2500);
-
-      // Step 2: Issue DCP & Auto-Scan Overrides Manual Data
-      go('dcp-issue');
-      toast('Step 2: Auto-Scan & Verification', 'Pulling true OEM data from Manufacturer API to verify manual input.', 'info', 4000);
-      document.getElementById('d-vin').value = testVin;
-      document.getElementById('d-make').value = 'Toyota';
-      document.getElementById('d-model').value = 'Camry';
-      document.getElementById('d-year').value = '2015';
-      await sleep(2000);
-      
-      // Force a fault code for the demo
-      window._demoFault = true;
-      document.getElementById('scan-btn').click();
-      await sleep(7500); // wait for scan + toast animations
-
-      // Step 3: Workshop Repair
-      go('workshop');
-      toast('Step 3: Workshop Routing', 'Critical fault (P0420) detected. Routing to authorized workshop for repair...', 'err', 4000);
-      await sleep(3000);
-      document.getElementById('ws-jobs').innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--c-green);border-radius:var(--r);">
-          <div>
-            <div style="font-size:.85rem;font-weight:600;">Catalytic Converter Replacement</div>
-            <div style="font-size:.72rem;color:var(--c-text3);">VIN: ${testVin} | Fault: P0420</div>
-          </div>
-          <span class="badge b-green">REPAIRED & CLEARED</span>
-        </div>`;
-      toast('Repair Complete', 'Workshop has cleared the fault and updated the ledger.', 'ok', 3000);
-      await sleep(4000);
-
-      // Step 4: Issue DCP
-      go('dcp-issue');
-      toast('Step 4: Issue DCP', 'Generating immutable Digital Condition Passport post-repair.', 'info', 3000);
-      document.getElementById('d-faults').value = ''; // clear faults
-      document.getElementById('d-notes').value = 'Vehicle fully repaired by authorized workshop. Excellent condition.';
-      await sleep(2000);
-      document.getElementById('dcp-btn').click();
-      await sleep(4500);
-
-      // Step 5: Escrow
-      go('escrow-new');
-      toast('Step 5: Trustless Escrow', 'Creating secure smart escrow. Funds release ONLY if hash matches physical vehicle.', 'info', 5000);
-      document.getElementById('e-dcp').value = LAST_DCP_ID || 'DCP-' + testVin;
-      document.getElementById('e-vin').value = testVin;
-      document.getElementById('e-amt').value = '45000';
-      document.getElementById('e-bn').value = 'Venture Capitalist';
-      document.getElementById('e-be').value = 'investor@example.com';
-      document.getElementById('e-bp').value = '+2348000000000';
-      document.getElementById('e-sn').value = 'Auto Dealer';
-      document.getElementById('e-se').value = 'dealer@example.com';
-      await sleep(4000);
-      document.getElementById('esc-btn').click();
-      await sleep(3500);
-
-      toast('Demo Complete 🎉', 'End-to-end trust protocol lifecycle demonstrated successfully.', 'ok', 8000);
-    };
-
     // ── FLEET ────────────────────────────────────────────────────
     async function loadFleet() {
       const r = await api('GET', '/fleet/dashboard');
@@ -3444,6 +3379,25 @@
     <div class="stat"><div class="stat-label">Warning</div><div class="stat-val" style="color:var(--c-amber)">${s.warning}</div></div>
     <div class="stat red"><div class="stat-label">Critical</div><div class="stat-val">${s.critical}</div></div>
     <div class="stat blue"><div class="stat-label">Fleet Score</div><div class="stat-val">${s.fleet_health_score}</div><div class="stat-meta">out of 100</div></div>`;
+
+      // Render Fleet Donut Chart
+      if (window.fleetChart) window.fleetChart.destroy();
+      window.fleetChart = new Chart(document.getElementById('fleetHealthChart'), {
+          type: 'doughnut',
+          data: {
+              labels: ['Healthy', 'Warning', 'Critical'],
+              datasets: [{
+                  data: [s.healthy, s.warning, s.critical],
+                  backgroundColor: ['#00D68F', '#FFB830', '#FF4757'],
+                  borderWidth: 0
+              }]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { position: 'right', labels: { color: '#EEF2F8' } } }
+          }
+      });
 
       const alerts = s.warning + s.critical;
       const badge = document.getElementById('fleet-alert-badge');
@@ -3683,13 +3637,129 @@
       }
       const pricing = pr?.d?.pricing;
       if (pricing) {
+        const allPlans = [
+          { key: 'private', name: 'PRIVATE OWNER', data: pricing.private_owner, roles: ['private_owner', 'admin'] },
+          { key: 'fleet', name: 'FLEET MANAGER', data: pricing.fleet, featured: true, roles: ['fleet_owner', 'admin'] },
+          { key: 'reseller', name: 'DEALER RESELLER', data: pricing.reseller, roles: ['reseller', 'admin'] }
+        ];
+        const availablePlans = allPlans.filter(p => p.roles.includes(USER?.role));
+        document.getElementById('sub-plans').innerHTML = `
+      <div class="plan-grid">${availablePlans.map(pl => !pl.data ? '' : `
+        <div class="plan-card ${pl.featured ? 'featured' : ''}">
+          ${pl.featured ? '<div class="plan-top-badge">RECOMMENDED</div>' : ''}
+          <div class="plan-name">${pl.name}</div>
+          <div class="plan-price">NGN ${(pl.data.price_ngn || 0).toLocaleString()} <small>/month</small></div>
+          <div class="plan-features">${(pl.data.features || []).map(f => `<div class="pf">${f}</div>`).join('')}</div>
+          <button class="btn btn-${pl.featured ? 'orange' : 'ghost'} btn-block btn-sm" style="margin-top:14px" onclick="initSub('${pl.key}')">Choose Plan</button>
+        </div>`).join('')}</div>`;
+      }
+    }
+
+    async function initSub(plan) {
+      const r = await api('POST', '/subscription/initiate', { plan, vehicle_count: 1 });
+      if (!r?.ok) { toast('Error', r?.d?.detail || 'Failed', 'err'); return; }
+      if (r.d.payment_url) {
+        toast('Redirecting to Payment Gateway', 'Complete payment to activate', 'info', 2000);
+        // Using location.href bypasses browser popup blockers
+        setTimeout(() => window.location.href = r.d.payment_url, 800);
+      }
+    }
+
+    // ── PROFILE ──────────────────────────────────────────────────
+    async function loadProfile() {
+      const r = await api('GET', '/auth/me');
+      if (!r?.ok) return;
+      const u = r.d.user;
+      document.getElementById('p-name').value = u.full_name || '';
+      document.getElementById('p-phone').value = u.phone || '';
+      document.getElementById('p-co').value = u.company_name || '';
+      document.getElementById('p-addr').value = u.address || '';
+    }
+
+    async function doUpdateProfile(e) {
+      e.preventDefault();
+      const r = await api('PUT', '/auth/me', {
+        full_name: document.getElementById('p-name').value,
+        phone: document.getElementById('p-phone').value,
+        company_name: document.getElementById('p-co').value,
+        address: document.getElementById('p-addr').value,
+        state: document.getElementById('p-state').value
+      });
+      if (r?.ok) {
+        toast('Profile Updated', '', 'ok');
+        USER.full_name = document.getElementById('p-name').value;
+        localStorage.setItem('tah_user', JSON.stringify(USER));
+        document.getElementById('s-name').textContent = USER.full_name;
+        document.getElementById('s-av').textContent = USER.full_name[0];
+      }
+    }
+
+    async function doChangePW(e) {
+      e.preventDefault();
+      hideAlert('pw-alert');
+      const nw = document.getElementById('pw-new').value;
+      const cf = document.getElementById('pw-cfm').value;
+      if (nw !== cf) { showAlert('pw-alert', 'Passwords do not match'); return; }
+      if (nw.length < 8) { showAlert('pw-alert', 'Min 8 characters'); return; }
+      const r = await api('POST', '/auth/change-password', {
+        current_password: document.getElementById('pw-cur').value,
+        new_password: nw
+      });
+      if (r?.ok) toast('Password Changed', '', 'ok');
+      else showAlert('pw-alert', r?.d?.detail || 'Failed');
+    }
+
+    // ── MODAL ────────────────────────────────────────────────────
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    document.querySelectorAll('.modal-bg').forEach(m => {
+      m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+    });
+
+    // ── UTILS ────────────────────────────────────────────────────
+    function fmt(iso) {
+      if (!iso) return '';
+      return new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ── SESSION RESTORE ──────────────────────────────────────────
+    if (TOKEN && USER) {
+      document.getElementById('auth-gate').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      bootApp();
+    }
+  </script>
+</body>
+
+</html> api('GET', '/subscription/pricing', null, false)
+      ]);
+      const sub = st?.d?.subscription;
+      if (sub) {
+        document.getElementById('sub-cur').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:rgba(255,255,255,.03);border-radius:var(--r);border:1px solid var(--c-border)">
+        <div>
+          <div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;letter-spacing:.1em">Current Plan</div>
+          <div style="font-family:var(--f-display);font-size:1.4rem;letter-spacing:.04em;text-transform:capitalize">${sub.plan}</div>
+          <div style="font-size:.72rem;color:var(--c-text3)">${sub.vehicle_slots} slot${sub.vehicle_slots !== 1 ? 's' : ''} · ${sub.days_remaining ?? '—'} days remaining</div>
+        </div>
+        <span class="badge ${sub.is_active ? 'b-green' : 'b-amber'}">${sub.is_active ? 'Active' : sub.status}</span>
+      </div>`;
+      }
+      const pricing = pr?.d?.pricing;
+      if (pricing) {
         const plans = [
           { key: 'private', name: 'PRIVATE OWNER', data: pricing.private_owner },
           { key: 'fleet', name: 'FLEET MANAGER', data: pricing.fleet, featured: true },
           { key: 'reseller', name: 'DEALER RESELLER', data: pricing.reseller }
+        const allPlans = [
+          { key: 'private', name: 'PRIVATE OWNER', data: pricing.private_owner, roles: ['private_owner', 'admin'] },
+          { key: 'fleet', name: 'FLEET MANAGER', data: pricing.fleet, featured: true, roles: ['fleet_owner', 'admin'] },
+          { key: 'reseller', name: 'DEALER RESELLER', data: pricing.reseller, roles: ['reseller', 'admin'] }
         ];
+        const availablePlans = allPlans.filter(p => p.roles.includes(USER?.role));
         document.getElementById('sub-plans').innerHTML = `
       <div class="plan-grid">${plans.map(pl => !pl.data ? '' : `
+      <div class="plan-grid">${availablePlans.map(pl => !pl.data ? '' : `
         <div class="plan-card ${pl.featured ? 'featured' : ''}">
           ${pl.featured ? '<div class="plan-top-badge">RECOMMENDED</div>' : ''}
           <div class="plan-name">${pl.name}</div>
@@ -3706,6 +3776,9 @@
       if (r.d.payment_url) {
         toast('Redirecting to Flutterwave', 'Complete payment to activate', 'info', 2000);
         setTimeout(() => window.open(r.d.payment_url, '_blank'), 800);
+        toast('Redirecting to Payment Gateway', 'Complete payment to activate', 'info', 2000);
+        // Using location.href bypasses browser popup blockers
+        setTimeout(() => window.location.href = r.d.payment_url, 800);
       }
     }
 
