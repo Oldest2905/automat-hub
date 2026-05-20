@@ -122,7 +122,16 @@ async def get_workshop_jobs(
     current_user: dict = Depends(get_current_user)
 ):
     """Get all repair jobs for a workshop."""
-    query = select(RepairJob).where(RepairJob.workshop_id == workshop_id)
+    # If the user is an owner, securely filter jobs to only show their own vehicles
+    if current_user.get("role") in ["private_owner", "fleet_owner"]:
+        query = (
+            select(RepairJob)
+            .join(TrackedVehicle, RepairJob.vehicle_id == TrackedVehicle.vehicle_id)
+            .where(RepairJob.workshop_id == workshop_id)
+            .where(TrackedVehicle.owner_id == current_user["user_id"])
+        )
+    else:
+        query = select(RepairJob).where(RepairJob.workshop_id == workshop_id)
 
     if status != "all":
         query = query.where(RepairJob.status == status)
