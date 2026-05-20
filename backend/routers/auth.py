@@ -112,6 +112,7 @@ async def reset_password(request: ResetPasswordRequest, db: AsyncSession = Depen
     user = result.scalar_one_or_none()
     user.password_hash = hash_password(request.new_password)
     del reset_tokens[request.token]
+    await db.commit()
     return {"success": True, "message": "Password reset. Please login."}
 
 @router.get("/me")
@@ -120,12 +121,15 @@ async def get_profile(db: AsyncSession = Depends(get_db), current_user: dict = D
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(404, "User not found")
-    return {"success": True, "user": {"user_id": user.user_id, "full_name": user.full_name,
-            "email": user.email, "phone": user.phone, "role": user.role,
-            "company_name": user.company_name, "subscription_plan": user.subscription_plan,
-            "subscription_status": user.subscription_status,
-            "subscription_end": user.subscription_end.isoformat() if user.subscription_end else None,
-            "vehicle_slots": user.vehicle_slots, "created_at": user.created_at.isoformat()}}
+    return {"success": True, "user": {
+        "user_id": user.user_id, "full_name": user.full_name,
+        "email": user.email, "phone": user.phone, "role": user.role,
+        "company_name": user.company_name, "subscription_plan": user.subscription_plan,
+        "subscription_status": user.subscription_status,
+        "subscription_end": user.subscription_end.isoformat() if user.subscription_end else None,
+        "vehicle_slots": user.vehicle_slots, "created_at": user.created_at.isoformat(),
+        "address": getattr(user, "address", ""), "state": getattr(user, "state", "")
+    }}
 
 @router.put("/me")
 async def update_profile(request: UpdateProfileRequest, db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)):
@@ -134,8 +138,9 @@ async def update_profile(request: UpdateProfileRequest, db: AsyncSession = Depen
     if request.full_name: user.full_name = request.full_name
     if request.phone: user.phone = request.phone
     if request.company_name: user.company_name = request.company_name
-    if request.address: user.address = request.address
-    if request.state: user.state = request.state
+    if request.address and hasattr(user, 'address'): user.address = request.address
+    if request.state and hasattr(user, 'state'): user.state = request.state
+    await db.commit()
     return {"success": True, "message": "Profile updated"}
 
 @router.post("/change-password")
@@ -147,6 +152,7 @@ async def change_password(request: ChangePasswordRequest, db: AsyncSession = Dep
     if len(request.new_password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
     user.password_hash = hash_password(request.new_password)
+    await db.commit()
     return {"success": True, "message": "Password changed"}
 
 async def send_reset_email(email: str, name: str, reset_url: str):

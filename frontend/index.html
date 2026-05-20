@@ -1668,7 +1668,7 @@
         </div>
       </nav>
 
-      <nav class="nav-grp">
+      <nav class="nav-grp" id="grp-vehicles">
         <div class="nav-lbl">Vehicle Linking</div>
         <div class="ni" onclick="go('my-vehicles')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1688,7 +1688,7 @@
         </div>
       </nav>
 
-      <nav class="nav-grp">
+      <nav class="nav-grp" id="grp-dcp">
         <div class="nav-lbl">DCP Protocol</div>
         <div class="ni" onclick="go('dcp-issue')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1706,7 +1706,7 @@
         </div>
       </nav>
 
-      <nav class="nav-grp">
+      <nav class="nav-grp" id="grp-escrow">
         <div class="nav-lbl">Escrow</div>
         <div class="ni" onclick="go('escrow-new')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1723,8 +1723,8 @@
       </nav>
 
       <nav class="nav-grp" id="fleet-grp">
-        <div class="nav-lbl">Fleet</div>
-        <div class="ni" onclick="go('fleet')">
+        <div class="nav-lbl">Fleet & Tracking</div>
+        <div class="ni" id="nav-fleet-portal" onclick="go('fleet')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
             <circle cx="9" cy="7" r="4" />
@@ -1734,7 +1734,7 @@
           Fleet Portal
           <span class="ni-badge" id="fleet-alert-badge" style="display:none">0</span>
         </div>
-        <div class="ni" onclick="go('fleet-tracking')">
+        <div class="ni" id="nav-fleet-tracking" onclick="go('fleet-tracking')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" />
             <line x1="2" y1="12" x2="22" y2="12" />
@@ -1744,7 +1744,7 @@
         </div>
       </nav>
 
-      <nav class="nav-grp">
+      <nav class="nav-grp" id="grp-operations">
         <div class="nav-lbl">Operations</div>
         <div class="ni" onclick="go('workshop')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1776,9 +1776,9 @@
         </div>
       </nav>
 
-      <nav class="nav-grp">
+      <nav class="nav-grp" id="grp-account">
         <div class="nav-lbl">Account</div>
-        <div class="ni" onclick="go('subscription')">
+        <div class="ni" id="nav-subscription" onclick="go('subscription')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
@@ -2870,7 +2870,13 @@
       const el = document.getElementById(id);
       if (!el) return;
       el.className = `alert alert-${type} show`;
-      el.textContent = msg;
+      if (Array.isArray(msg)) {
+        el.innerHTML = msg.map(m => `&bull; ${m.msg || 'Invalid field'} (${m.loc?.join(' &rarr; ')})`).join('<br>');
+      } else if (typeof msg === 'object') {
+        el.textContent = JSON.stringify(msg);
+      } else {
+        el.textContent = msg;
+      }
     }
     function hideAlert(id) {
       const el = document.getElementById(id);
@@ -2947,16 +2953,42 @@
     // ── BOOT ─────────────────────────────────────────────────────
     function bootApp() {
       if (!USER) return;
+      const r = USER.role || 'private_owner';
       document.getElementById('s-av').textContent = (USER.full_name || 'U')[0].toUpperCase();
       document.getElementById('s-name').textContent = USER.full_name || 'User';
-      document.getElementById('s-role').textContent = (USER.role || '').replace('_', ' ');
+      document.getElementById('s-role').textContent = r.replace('_', ' ');
       document.getElementById('sub-pill').textContent = USER.subscription_plan || 'Free';
 
-      // Role-based nav
-      if (['fleet_owner', 'admin'].includes(USER.role)) document.getElementById('fleet-grp').style.display = '';
-      else document.getElementById('fleet-grp').style.display = 'none';
-      if (USER.role === 'reseller') document.getElementById('reseller-grp').style.display = '';
-      if (USER.role === 'admin') document.getElementById('admin-grp').style.display = '';
+      // Role-based nav gating (Strict RBAC implementation)
+      const safeHide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+      const safeShow = (id) => { const el = document.getElementById(id); if (el) el.style.display = ''; };
+
+      // 1. Hide all restricted elements by default
+      safeHide('grp-vehicles'); safeHide('grp-dcp'); safeHide('grp-escrow');
+      safeHide('fleet-grp'); safeHide('nav-fleet-portal'); safeHide('nav-fleet-tracking');
+      safeHide('grp-operations'); safeHide('reseller-grp'); safeHide('admin-grp');
+      safeHide('nav-subscription');
+
+      // 2. Unhide elements explicitly permitted by role
+      if (r === 'admin') {
+        safeShow('grp-vehicles'); safeShow('grp-dcp'); safeShow('grp-escrow');
+        safeShow('fleet-grp'); safeShow('nav-fleet-portal'); safeShow('nav-fleet-tracking');
+        safeShow('grp-operations'); safeShow('reseller-grp'); safeShow('admin-grp');
+        safeShow('nav-subscription');
+      } else if (r === 'fleet_owner') {
+        safeShow('grp-vehicles'); safeShow('grp-dcp'); safeShow('grp-escrow');
+        safeShow('fleet-grp'); safeShow('nav-fleet-portal'); safeShow('nav-fleet-tracking');
+        safeShow('grp-operations'); safeShow('nav-subscription');
+      } else if (r === 'private_owner') {
+        safeShow('grp-vehicles'); safeShow('grp-dcp'); safeShow('grp-escrow');
+        safeShow('fleet-grp'); safeShow('nav-fleet-tracking'); // Access to tracking only
+        safeShow('grp-operations'); safeShow('nav-subscription');
+      } else if (r === 'reseller') {
+        safeShow('grp-dcp'); safeShow('grp-escrow'); safeShow('reseller-grp');
+        safeShow('nav-subscription');
+      } else if (r === 'mechanic') {
+        safeShow('grp-dcp'); safeShow('grp-operations');
+      }
 
       go('dashboard');
     }
@@ -3009,10 +3041,16 @@
 
     // ── DASHBOARD ────────────────────────────────────────────────
     async function loadDashboard() {
-      const [dcpR, subR] = await Promise.all([
-        api('GET', '/admin/dcps?limit=5'),
-        api('GET', '/subscription/status')
-      ]);
+      const promises = [api('GET', '/subscription/status')];
+      
+      // Fix for the 403 Forbidden error: Only fetch admin stats if the user is an admin
+      if (USER?.role === 'admin') {
+        promises.push(api('GET', '/admin/dcps?limit=5'));
+      }
+
+      const results = await Promise.all(promises);
+      const subR = results[0];
+      const dcpR = USER?.role === 'admin' ? results[1] : null;
 
       const total = dcpR?.d?.total || 0;
       const sub = subR?.d?.subscription;
@@ -3158,7 +3196,7 @@
         vin: document.getElementById('d-vin').value.toUpperCase(),
         make: document.getElementById('d-make').value,
         model: document.getElementById('d-model').value,
-        year: parseInt(document.getElementById('d-year').value),
+        year: parseInt(document.getElementById('d-year').value) || new Date().getFullYear(),
         colour: document.getElementById('d-colour').value,
         odometer_km: parseInt(document.getElementById('d-odo').value, 10) || 0,
         inspection_modules: {
