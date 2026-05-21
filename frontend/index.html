@@ -3225,15 +3225,20 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         Details
       </button>
-      <button class="btn btn-orange btn-sm" style="flex:1" onclick="go('dcp-issue')">
-        Issue DCP
+      <button class="btn btn-orange btn-sm" style="flex:1" onclick="autoIssueDCP('${v.vehicle_id}', '${v.vin}', '${v.make}', '${v.model}', '${v.year || ''}')">
+        Auto-Issue DCP
       </button>
     </div>
-    <button class="btn btn-ghost btn-block btn-sm" id="connect-btn-${v.vehicle_id}"
-      onclick="openVehicleConnect('${v.vehicle_id}', '${v.make} ${v.model}', '${v.obd_connection_method||''}')">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-      Connect OBD or Manufacturer
-    </button>
+    <div style="display:flex;gap:7px">
+      <button class="btn btn-ghost btn-sm" id="connect-btn-${v.vehicle_id}" style="flex:2"
+        onclick="openVehicleConnect('${v.vehicle_id}', '${v.make} ${v.model}', '${v.obd_connection_method||''}')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        Connect OBD
+      </button>
+      <button class="btn btn-sm" style="flex:1; background:rgba(26, 74, 140, .2); color:#5B9EFF; border:1px solid rgba(26, 74, 140, .3);" onclick="prepEscrow('${v.vin}', '${v.latest_dcp_id || ''}')">
+        Sell
+      </button>
+    </div>
   </div>
 </div>`;
       }).join('');

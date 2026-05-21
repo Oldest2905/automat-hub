@@ -228,6 +228,7 @@ async def fleet_dashboard(
             "status": v.status,
             "health_score": v.latest_score,
             "has_faults": v.has_active_faults,
+            "latest_dcp_id": v.latest_dcp_id,
             "fault_count": len(v.active_fault_codes or []),
             "last_scan": v.latest_scan_at.isoformat() if v.latest_scan_at else None,
             "location": {

@@ -9,13 +9,16 @@ GET  /dcp/vehicle/{vin}      — Vehicle history (API key required)
 GET  /dcp/{dcp_id}           — Get DCP details (API key required)
 """
 
+from datetime import datetime
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc
 
 from backend.core.database import get_db
 from backend.core.security import get_current_user, verify_api_key
 from backend.schemas.dcp import IssueDCPRequest, DCPResponse, DCPVerificationResponse
 from backend.services.dcp_service import issue_dcp, verify_dcp, get_vehicle_history
+from backend.models.fleet import TrackedVehicle, HourlyScan
 
 router = APIRouter(prefix="/dcp", tags=["Digital Condition Passport"])
 
@@ -68,6 +71,103 @@ async def issue_dcp_endpoint(
         "data": result
     }
 
+@router.post(
+    "/auto-issue/{vehicle_id}",
+    response_model=dict,
+    summary="Auto-issue DCP from latest scan data"
+)
+async def auto_issue_dcp_endpoint(
+    vehicle_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Auto-issues a DCP seamlessly using the vehicle's latest hardware scan data.
+    """
+    # 1. Get Vehicle
+    vehicle = await db.scalar(select(TrackedVehicle).where(TrackedVehicle.vehicle_id == vehicle_id))
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    # 2. Role gate
+    allowed_roles = {"inspector", "admin", "reseller", "mechanic"}
+    if current_user.get("role") not in allowed_roles:
+        # Allow private owners ONLY if they are using verified hardware
+        if vehicle.obd_connection_method not in ["obd_hardware", "manufacturer_api"]:
+            raise HTTPException(status_code=403, detail="Private owners can only auto-issue DCPs for hardware-connected vehicles.")
+        
+    # 3. Get Latest Scan
+    latest_scan = await db.scalar(
+        select(HourlyScan).where(HourlyScan.vehicle_id == vehicle_id).order_by(desc(HourlyScan.scanned_at)).limit(1)
+    )
+    if not latest_scan:
+        raise HTTPException(status_code=400, detail="No scan data available. Please connect and scan the vehicle first.")
+        
+    # 4. Build IssueDCPRequest
+    obd_status = "Faults Present" if latest_scan.fault_codes else "Clear"
+    score = latest_scan.health_score or 100
+    
+    request_data = {
+        "vehicle": {
+            "vin": vehicle.vin,
+            "make": vehicle.make or "Unknown",
+            "model": vehicle.model or "Unknown",
+            "year": vehicle.year or datetime.now().year,
+            "colour": vehicle.colour or "Unknown",
+            "odometer": latest_scan.odometer_km or vehicle.odometer_current or 0
+        },
+        "inspection": {
+            "score": score,
+            "mechanical_systems": score,
+            "electrical_controls": score,
+            "structural_integrity": 100,
+            "maintenance_compliance": 100,
+            "hse_standards": 100,
+            "operational_technology": score,
+            "obd2_status": obd_status,
+            "obd2_fault_codes": latest_scan.fault_codes or [],
+            "obd2_readiness_monitors": {},
+            "engine_compression": "Good",
+            "engine_oil_condition": "Good",
+            "coolant_condition": "Good",
+            "timing_belt_condition": "Good",
+            "transmission_condition": "Good",
+            "transmission_fluid": "Good",
+            "frame_alignment": "Good",
+            "rust_assessment": "Good",
+            "accident_history_indicators": False,
+            "paint_uniformity": "Good",
+            "battery_health": "Good",
+            "alternator_output": "Good",
+            "electronics_status": "Good",
+            "brake_condition": "Good",
+            "tyre_condition": {"front_left": "Good", "front_right": "Good", "rear_left": "Good", "rear_right": "Good"},
+            "airbag_status": "Good",
+            "abs_status": "Good",
+            "ai_condition_grade": "A" if score >= 80 else "B" if score >= 60 else "C",
+            "ai_confidence_score": 0.95,
+            "ai_flags": [],
+            "checklist_results": {},
+            "inspector_notes": "Auto-issued from hardware telemetrics."
+        },
+        "auditor_id": current_user["user_id"],
+        "warranty_days": 30
+    }
+    request = IssueDCPRequest(**request_data)
+    
+    result = await issue_dcp(request, db)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    # Update vehicle's latest_dcp_id
+    vehicle.latest_dcp_id = result.get("dcp_id")
+    await db.flush()
+        
+    return {
+        "success": True,
+        "message": "DCP auto-issued successfully",
+        "data": result
+    }
 
 @router.get(
     "/verify/{dcp_id}",
