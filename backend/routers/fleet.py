@@ -233,7 +233,10 @@ async def fleet_dashboard(
     This is the main view for fleet managers.
     """
     query = select(TrackedVehicle).where(
-        TrackedVehicle.owner_id == current_user["user_id"]
+        and_(
+            TrackedVehicle.owner_id == current_user["user_id"],
+            TrackedVehicle.status != "inactive"
+        )
     )
     if fleet_id:
         query = query.where(TrackedVehicle.fleet_id == fleet_id)

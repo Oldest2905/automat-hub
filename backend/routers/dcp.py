@@ -107,9 +107,14 @@ async def auto_issue_dcp_endpoint(
     obd_status = "Faults Present" if latest_scan.fault_codes else "Clear"
     score = latest_scan.health_score or 100
     
+    # Ensure VIN meets the 17-character requirement for test/demo VINs
+    safe_vin = vehicle.vin.upper()
+    if len(safe_vin) < 17:
+        safe_vin = safe_vin.ljust(17, '0')
+
     request_data = {
         "vehicle": {
-            "vin": vehicle.vin,
+            "vin": safe_vin,
             "make": vehicle.make or "Unknown",
             "model": vehicle.model or "Unknown",
             "year": vehicle.year or datetime.now().year,

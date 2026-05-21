@@ -468,4 +468,19 @@ async def get_escrow_status(escrow_id: str, db: AsyncSession) -> dict:
     if not deal:
         return {"error": "Escrow not found"}
 
-    return deal
+    return {
+        "escrow_id": deal.escrow_id,
+        "dcp_id": deal.dcp_id,
+        "vin": deal.vin,
+        "buyer_name": deal.buyer_name,
+        "buyer_email": deal.buyer_email,
+        "buyer_phone": deal.buyer_phone,
+        "seller_name": deal.seller_name,
+        "seller_email": deal.seller_email,
+        "amount_usd": float(deal.amount_usd) if deal.amount_usd else 0.0,
+        "platform_fee_amount": float(deal.platform_fee_amount) if deal.platform_fee_amount else 0.0,
+        "seller_net_amount": float(deal.seller_net_amount) if deal.seller_net_amount else 0.0,
+        "status": deal.status,
+        "dcp_verified": deal.dcp_verified,
+        "initiated_at": deal.initiated_at.isoformat() if deal.initiated_at else None
+    }

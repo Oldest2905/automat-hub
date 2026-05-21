@@ -1985,7 +1985,7 @@
             <form onsubmit="doLinkVehicle(event)" style="display:flex;flex-direction:column;gap:13px">
               <div class="fg-row">
                 <div class="fg"><label>VIN Number</label><input type="text" id="lv-vin" placeholder="SALYT2EX8NA329745"
-                    required style="text-transform:uppercase;font-family:var(--f-mono)"></div>
+                    required style="text-transform:uppercase;font-family:var(--f-mono)" oninput="if(this.value.length===17) decodeVIN(this.value, 'lv-make', 'lv-model', 'lv-year')"></div>
                 <div class="fg"><label>Plate Number</label><input type="text" id="lv-plate" placeholder="OY-123-ABC"
                     required style="text-transform:uppercase"></div>
               </div>
@@ -2124,7 +2124,7 @@
                 <div class="fg">
                   <label>VIN</label>
                   <div style="display:flex;gap:8px">
-                    <input type="text" id="d-vin" placeholder="SALYT2EX8NA329745" required style="text-transform:uppercase;font-family:var(--f-mono);flex:1">
+                    <input type="text" id="d-vin" placeholder="SALYT2EX8NA329745" required style="text-transform:uppercase;font-family:var(--f-mono);flex:1" oninput="if(this.value.length===17) decodeVIN(this.value, 'd-make', 'd-model', 'd-year')">
                     <button type="button" class="btn btn-ghost btn-sm" id="scan-btn" onclick="doAutoScan()"><div class="spin"></div><span class="bt">Auto-Scan OBD</span></button>
                   </div>
                 </div>
@@ -4043,6 +4043,26 @@
     function fmt(iso) {
       if (!iso) return '';
       return new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function decodeVIN(vin, makeId, modelId, yearId) {
+      if (vin.length !== 17) return;
+      try {
+        const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`);
+        const data = await res.json();
+        if (data.Results) {
+          const make = data.Results.find(r => r.Variable === "Make")?.Value;
+          const model = data.Results.find(r => r.Variable === "Model")?.Value;
+          const year = data.Results.find(r => r.Variable === "Model Year")?.Value;
+          
+          let found = false;
+          if (make && make !== "null") { document.getElementById(makeId).value = make; found = true; }
+          if (model && model !== "null") { document.getElementById(modelId).value = model; found = true; }
+          if (year && year !== "null") { document.getElementById(yearId).value = year; found = true; }
+          
+          if (found) toast('VIN Decoded', `Vehicle auto-filled: ${year || ''} ${make || ''} ${model || ''}`, 'ok');
+        }
+      } catch (e) { console.error("VIN decode error", e); }
     }
 
     // ── SESSION RESTORE ──────────────────────────────────────────
