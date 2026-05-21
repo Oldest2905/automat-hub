@@ -186,6 +186,38 @@ async def add_vehicle_to_fleet(
         "message": f"Vehicle registered for tracking. Using {current_vehicle_count + 1} of {allowed_slots} slot{'s' if allowed_slots != 1 else ''}."
     }
 
+@router.post("/vehicle/{vehicle_id}/remove", response_model=dict)
+async def remove_vehicle(
+    vehicle_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Remove a vehicle from the user's tracking profile by marking it as inactive.
+    """
+    result = await db.execute(
+        select(TrackedVehicle).where(
+            and_(
+                TrackedVehicle.vehicle_id == vehicle_id,
+                TrackedVehicle.owner_id == current_user["user_id"]
+            )
+        )
+    )
+    vehicle = result.scalar_one_or_none()
+
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    vehicle.status = "inactive"
+    vehicle.obd_connection_method = None
+    vehicle.obd_adapter_id = None
+    vehicle.fleet_id = None
+    await db.flush()
+
+    return {
+        "success": True,
+        "message": "Vehicle removed successfully"
+    }
 
 # ── FLEET DASHBOARD ──────────────────────────────────────────
 

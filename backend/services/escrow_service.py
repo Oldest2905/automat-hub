@@ -88,6 +88,19 @@ async def create_escrow(
     Validates DCP exists before creating.
     Calculates fees and net amounts.
     """
+    from backend.models.dcp import DCPRecord
+
+    # ── VALIDATE DCP (Loophole 2 Fix) ─────────────────────────────
+    dcp_result = await db.execute(
+        select(DCPRecord).where(
+            DCPRecord.dcp_id == request.dcp_id,
+            DCPRecord.vin == request.vin.upper(),
+            DCPRecord.status == "VERIFIED"
+        )
+    )
+    if not dcp_result.scalar_one_or_none():
+        return {"error": f"No active/verified DCP found for VIN {request.vin.upper()}"}
+
     escrow_id = generate_escrow_id()
     fees = calculate_fees(request.amount_usd)
 

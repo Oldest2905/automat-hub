@@ -3292,6 +3292,58 @@
       }
     }
 
+    window.prepEscrow = function(vin, dcp_id) {
+        if (!dcp_id || dcp_id === 'null' || dcp_id === 'undefined') {
+            toast('DCP Required', 'You must issue a DCP before creating an Escrow deal.', 'err');
+            return;
+        }
+        go('escrow-new');
+        document.getElementById('e-dcp').value = dcp_id;
+        document.getElementById('e-vin').value = vin;
+        document.getElementById('e-sn').value = USER.full_name || '';
+        document.getElementById('e-se').value = USER.email || '';
+        
+        document.getElementById('e-dcp').readOnly = true;
+        document.getElementById('e-vin').readOnly = true;
+        document.getElementById('e-sn').readOnly = true;
+        document.getElementById('e-se').readOnly = true;
+        
+        toast('Escrow Ready', 'Vehicle and seller details auto-populated.', 'ok');
+    };
+
+    window.autoIssueDCP = async function(vid, vin, make, model, year) {
+        if (!confirm("This will automatically generate a DCP using the latest vehicle scan data without manual entry. Proceed?")) return;
+        
+        if (USER?.role === 'mechanic') {
+          if (!confirm("Issuing a DCP as a mechanic costs NGN 5,000. You will be redirected to Flutterwave to complete payment. Proceed?")) return;
+        }
+        
+        const r = await api('POST', `/dcp/auto-issue/${vid}`);
+        if (!r?.ok) {
+            toast('Error', r?.d?.detail || 'Failed to auto-issue DCP. Try scanning the vehicle first.', 'err');
+            return;
+        }
+        
+        const dcp = r.d.data;
+        LAST_DCP_ID = dcp.dcp_id;
+        
+        go('dcp-issue');
+        showDCPResult(dcp, { vin, year: year || new Date().getFullYear(), make: make || 'Vehicle', model: model || '' });
+        toast('DCP Auto-Issued', `DCP generated from latest telemetrics. Score: ${dcp.score}`, 'ok');
+        loadMyVehicles();
+    };
+
+    window.removeVehicle = async function(vid) {
+        if (!confirm("Are you sure you want to remove this vehicle from your account? This will stop tracking and hide it from your dashboard.")) return;
+        const r = await api('POST', `/fleet/vehicle/${vid}/remove`);
+        if (r?.ok) {
+            toast('Vehicle Removed', 'The vehicle has been removed from your profile.', 'ok');
+            loadMyVehicles();
+        } else {
+            toast('Error', r?.d?.detail || 'Could not remove vehicle', 'err');
+        }
+    };
+
     // ── LINK VEHICLE ─────────────────────────────────────────────
     async function doLinkVehicle(e) {
       e.preventDefault();
