@@ -891,13 +891,12 @@ async function simulateOBDRead() {
   renderFaultCodes(demoData.fault_codes);
 }
 
-// ction renderFaultCodes(codes) {
+function renderFaultCodes(codes) {
   const DTC_DESC = {
     'P0300': 'Random/multiple cylinder misfire',
     'P0301': 'Cylinder 1 misfire detected',
     'P0302': 'Cylinder 2 misfire detected',
     'P0420': 'Catalyst efficiency below threshold (Bank 1)',
-    'P0171': 'System too lean',
     'P0171': 'System too lean',
     'P0174': 'System too lean (Bank 2)',
     'P0455': 'Evaporative Emission System Leak Detected'
@@ -923,6 +922,7 @@ async function simulateOBDRead() {
       </div>
     `;
   }).join('');
+}
 
 function advanceOBDStep(step) {
   document.querySelectorAll('.step-item').forEach(el => el.classList.remove('active'));
