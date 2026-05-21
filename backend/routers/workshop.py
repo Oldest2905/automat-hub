@@ -15,20 +15,25 @@ Mechanic can:
 - Submit post-fix scan to close job
 """
 
+import httpx
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
+from pydantic import BaseModel
 
 from backend.core.database import get_db
 from backend.core.security import get_current_user
 from backend.models.workshop import Workshop, Mechanic, RepairJob, JobStatus
 from backend.models.fleet import TrackedVehicle, VehicleAlert
 from backend.services.scan_service import process_hourly_scan
+from backend.config import settings
 
 router = APIRouter(prefix="/workshop", tags=["Workshop & Repairs"])
 
+class JobCompletionRequest(BaseModel):
+    amount_ngn: float
 
 # ── WORKSHOP REGISTRATION ────────────────────────────────────
 
@@ -325,62 +330,3 @@ async def submit_final_scan(
             "unfixed_faults": list(unfixed_faults),
             "message": f"Fix incomplete. {len(unfixed_faults)} fault(s) still present. Continue repair."
         }
-
-@router.post("/jobs/{job_id}/complete")
-async def complete_job_and_generate_payment(
-    job_id: str, 
-    payload: JobCompletionRequest, 
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Marks a job as complete and generates a Flutterwave payment link for the mechanic's fee.
-    """
-    result = await db.execute(select(RepairJob).where(RepairJob.job_id == job_id))
-    repair_job = result.scalar_one_or_none()
-
-    if repair_job:
-        repair_job.status = JobStatus.COMPLETED
-        repair_job.quoted_amount_ngn = payload.amount_ngn
-        await db.flush()
-
-    # 2. Generate a unique transaction reference
-    tx_ref = f"JOB-{uuid.uuid4().hex[:8].upper()}"
-
-    # 3. Build the Flutterwave payload
-    flutterwave_payload = {
-        "tx_ref": tx_ref,
-        "amount": payload.amount_ngn,
-        "currency": "NGN",
-        "redirect_url": f"{settings.APP_URL}/#workshop",
-        "customer": {
-            "email": current_user.get("email", "customer@automatcorp.org.ng"),
-            "name": current_user.get("full_name", "Automat Hub User"),
-        },
-        "customizations": {
-            "title": "The Automat Hub Workshop",
-            "description": f"Payment for Repair Job {job_id}",
-        }
-    }
-
-    # 4. Call Flutterwave Standard Payment API
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            "https://api.flutterwave.com/v3/payments",
-            headers={"Authorization": f"Bearer {settings.FLUTTERWAVE_SECRET_KEY}"},
-            json=flutterwave_payload
-        )
-        data = resp.json()
-
-    # 5. Return the payment link to the frontend
-    if data.get("status") == "success":
-        return {
-            "success": True, 
-            "payment_url": data["data"]["link"],
-            "tx_ref": tx_ref
-        }
-
-    raise HTTPException(
-        status_code=400, 
-        detail=data.get("message", "Failed to generate payment link")
-    )

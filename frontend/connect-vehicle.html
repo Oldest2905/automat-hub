@@ -869,51 +869,29 @@ async function readOBDData() {
   toast('Vehicle Data Read', 'ECU data pulled successfully.', 'ok');
 }
 
-// Update all PID cells from real data object
-function updateAllPIDs(data) {
-  const map = {
-    'pid-coolant': { val: data.coolant_temp_c, unit: '°C', warn: v => v > 105, danger: v => v > 115 },
-    'pid-rpm':     { val: data.engine_rpm, unit: 'rpm' },
-    'pid-battery': { val: data.battery_voltage, unit: 'V', warn: v => v < 12.2, danger: v => v < 11.5 },
-    'pid-fuel':    { val: data.fuel_level_pct, unit: '%', warn: v => v < 15, danger: v => v < 5 },
-    'pid-oil':     { val: data.oil_temp_c, unit: '°C', warn: v => v > 130, danger: v => v > 140 },
-    'pid-speed':   { val: data.speed_kmh, unit: 'km/h' },
-    'pid-odo':     { val: data.odometer_km, unit: 'km' },
-    'pid-status':  { val: data.dtcs?.length > 0 ? 'FAULT' : 'READY', unit: '' },
+// Simulate an OBD read for demo mode or browsers without Web Bluetooth
+async function simulateOBDRead() {
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  const demoData = {
+    source: 'obd_hardware',
+    adapter_id: PAIRED_ADAPTER?.id || 'DEMO_001',
+    adapter_name: PAIRED_ADAPTER?.name || 'Demo Adapter',
+    battery_voltage: 12.8,
+    engine_rpm: 850,
+    speed_kmh: 0,
+    coolant_temp_c: 92,
+    fuel_level_pct: 75,
+    oil_temp_c: 95,
+    odometer_km: 42500,
+    fault_codes: ['P0420'],
+    dtcs: ['P0420']
   };
-  for (const [id, cfg] of Object.entries(map)) {
-    if (cfg.val == null) continue;
-    const el = document.getElementById(id);
-    if (!el) continue;
-    el.textContent = typeof cfg.val === 'number'
-      ? `${cfg.val.toLocaleString()} ${cfg.unit}`.trim()
-      : cfg.val;
-    if (cfg.danger && cfg.danger(cfg.val)) el.className = 'pid-val err';
-    else if (cfg.warn && cfg.warn(cfg.val)) el.className = 'pid-val warn';
-    else el.className = 'pid-val ok';
-    el.closest('.pid-cell')?.classList.toggle('alert', !!(cfg.danger && cfg.danger(cfg.val)));
-    el.closest('.pid-cell')?.classList.toggle('ok', !(cfg.warn && cfg.warn(cfg.val)));
-  }
+  OBD_DATA = demoData;
+  updateAllPIDs(demoData);
+  renderFaultCodes(demoData.fault_codes);
 }
 
-// Update a single PID as data comes in (streaming callback)
-function updatePIDDisplay(key, val, unit) {
-  const keyMap = {
-    battery_voltage: 'pid-battery',
-    engine_rpm: 'pid-rpm',
-    speed: 'pid-speed',
-    coolant_temp: 'pid-coolant',
-    fuel_level: 'pid-fuel',
-    oil_temp: 'pid-oil',
-    odometer: 'pid-odo',
-  };
-  const id = keyMap[key];
-  if (!id) return;
-  const el = document.getElementById(id);
-  if (el) el.textContent = `${val} ${unit}`;
-}
-
-function renderFaultCodes(codes) {
+// ction renderFaultCodes(codes) {
   const DTC_DESC = {
     'P0300': 'Random/multiple cylinder misfire',
     'P0301': 'Cylinder 1 misfire detected',
@@ -945,7 +923,6 @@ function renderFaultCodes(codes) {
       </div>
     `;
   }).join('');
-}
 
 function advanceOBDStep(step) {
   document.querySelectorAll('.step-item').forEach(el => el.classList.remove('active'));
