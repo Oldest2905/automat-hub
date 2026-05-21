@@ -3476,11 +3476,15 @@
         dcp_id: document.getElementById('e-dcp').value.toUpperCase(),
         vin: document.getElementById('e-vin').value.toUpperCase(),
         amount_usd: parseFloat(document.getElementById('e-amt').value),
-        buyer_name: document.getElementById('e-bn').value,
-        buyer_email: document.getElementById('e-be').value,
-        buyer_phone: document.getElementById('e-bp').value,
-        seller_name: document.getElementById('e-sn').value,
-        seller_email: document.getElementById('e-se').value
+        buyer: {
+          name: document.getElementById('e-bn').value,
+          email: document.getElementById('e-be').value,
+          phone: document.getElementById('e-bp').value
+        },
+        seller: {
+          name: document.getElementById('e-sn').value,
+          email: document.getElementById('e-se').value
+        }
       });
       btn.classList.remove('loading'); btn.disabled = false;
       if (!r?.ok) { showAlert('esc-alert', r?.d?.detail || 'Failed to create escrow', 'err'); return; }
