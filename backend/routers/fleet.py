@@ -236,6 +236,7 @@ async def fleet_dashboard(
                 "lng": v.latest_location_lng,
                 "updated_at": v.latest_location_at.isoformat() if v.latest_location_at else None
             },
+            "obd_connection_method": v.obd_connection_method,
             "fuel_level": v.fuel_level_percent,
             "speed_kmh": v.current_speed_kmh,
             "odometer_km": v.odometer_current

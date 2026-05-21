@@ -346,6 +346,17 @@ async def _release_funds(deal: EscrowDeal, db: AsyncSession) -> dict:
     deal.status = EscrowStatus.COMPLETED
     deal.completed_at = datetime.now(timezone.utc)
 
+    from backend.models.fleet import TrackedVehicle
+    from backend.models.user import User
+
+    # Transfer vehicle ownership to buyer
+    vehicle = await db.scalar(select(TrackedVehicle).where(TrackedVehicle.vin == deal.vin))
+    buyer = await db.scalar(select(User).where(User.email == deal.buyer_email))
+
+    if vehicle and buyer:
+        vehicle.owner_id = buyer.user_id
+        vehicle.fleet_id = None # Clear any previous fleet associations
+
     await log_event(
         escrow_id=deal.escrow_id,
         event_type="FUNDS_RELEASED",

@@ -920,7 +920,11 @@ async function simulateOBDRead() {
     oil_temp_c: 95,
     odometer_km: 42500,
     fault_codes: ['P0420'],
-    dtcs: ['P0420']
+    dtcs: ['P0420'],
+    location: {
+      lat: 7.3775 + (Math.random() * 0.02 - 0.01),
+      lng: 3.9470 + (Math.random() * 0.02 - 0.01)
+    }
   };
   OBD_DATA = demoData;
   updateAllPIDs(demoData);

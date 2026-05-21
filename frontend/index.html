@@ -12,6 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     /* ═══════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -3238,6 +3239,9 @@
       <button class="btn btn-sm" style="flex:1; background:rgba(26, 74, 140, .2); color:#5B9EFF; border:1px solid rgba(26, 74, 140, .3);" onclick="prepEscrow('${v.vin}', '${v.latest_dcp_id || ''}')">
         Sell
       </button>
+      <button class="btn btn-danger btn-sm" style="flex:1" onclick="removeVehicle('${v.vehicle_id}')">
+        Remove
+      </button>
     </div>
   </div>
 </div>`;
@@ -3270,6 +3274,11 @@
           el.textContent = 'NFC Active';
           el.style.background = 'rgba(0,214,143,.1)';
           el.style.color = 'var(--c-green)';
+        } else if (method === 'manual') {
+          el.textContent = 'Manual Tracking';
+          el.style.background = 'rgba(232,131,9,.1)';
+          el.style.color = 'var(--c-orange)';
+          if (btn) btn.textContent = 'Manage Manual';
         } else {
           el.textContent = 'Not Connected';
           el.style.background = 'rgba(255,71,87,.08)';
@@ -3346,19 +3355,25 @@
       const btn = document.getElementById('scan-btn');
       btn.classList.add('loading'); btn.disabled = true;
       
+      // Match the score exactly with the vehicle dashboard telemetry
+      const r = await api('GET', '/fleet/dashboard');
+      const v = r?.d?.vehicles?.find(x => x.vin === vin);
+      const realScore = v?.health_score || Math.floor(Math.random() * 15) + 85;
+      const realOdo = v?.odometer_km || Math.floor(Math.random() * 60000) + 5000;
+      
       // Simulate connecting to OBD dongle or Manufacturer Cloud API
       setTimeout(() => {
         btn.classList.remove('loading'); btn.disabled = false;
         
-        // Auto-fill hardware telemetry data
-        document.getElementById('d-odo').value = Math.floor(Math.random() * 60000) + 5000;
-        document.getElementById('m1').value = Math.floor(Math.random() * 15) + 85;
-        document.getElementById('m2').value = Math.floor(Math.random() * 15) + 85;
-        document.getElementById('m3').value = Math.floor(Math.random() * 15) + 85;
-        document.getElementById('m4').value = Math.floor(Math.random() * 15) + 85;
-        document.getElementById('m5').value = Math.floor(Math.random() * 15) + 85;
-        document.getElementById('m6').value = Math.floor(Math.random() * 15) + 85;
-        document.getElementById('d-faults').value = Math.random() > 0.85 ? 'P0420' : '';
+        // Auto-fill hardware telemetry data to match health score exactly
+        document.getElementById('d-odo').value = realOdo;
+        document.getElementById('m1').value = realScore;
+        document.getElementById('m2').value = realScore;
+        document.getElementById('m3').value = 100;
+        document.getElementById('m4').value = 100;
+        document.getElementById('m5').value = 100;
+        document.getElementById('m6').value = realScore;
+        document.getElementById('d-faults').value = v?.fault_count > 0 ? (v.active_fault_codes || ['P0420']).join(', ') : '';
         
         // Lock fields to prevent human tampering
         const fields = ['d-make', 'd-model', 'd-year', 'd-colour', 'd-odo', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'd-faults'];
@@ -3523,11 +3538,15 @@
         dcp_id: document.getElementById('e-dcp').value.toUpperCase(),
         vin: document.getElementById('e-vin').value.toUpperCase(),
         amount_usd: parseFloat(document.getElementById('e-amt').value),
-        buyer_name: document.getElementById('e-bn').value,
-        buyer_email: document.getElementById('e-be').value,
-        buyer_phone: document.getElementById('e-bp').value,
-        seller_name: document.getElementById('e-sn').value,
-        seller_email: document.getElementById('e-se').value
+        buyer: {
+          name: document.getElementById('e-bn').value,
+          email: document.getElementById('e-be').value,
+          phone: document.getElementById('e-bp').value
+        },
+        seller: {
+          name: document.getElementById('e-sn').value,
+          email: document.getElementById('e-se').value
+        }
       });
       btn.classList.remove('loading'); btn.disabled = false;
       if (!r?.ok) { showAlert('esc-alert', r?.d?.detail || 'Failed to create escrow', 'err'); return; }
@@ -3713,16 +3732,23 @@
     }
 
     // ── LIVE TRACKING ────────────────────────────────────────────
-    function initTracking() {
+    async function initTracking() {
       if (WS) WS.close();
-      const wsUrl = `${API_BASE.replace('http', 'ws')}/ws/fleet/FLT-DEFAULT?token=${TOKEN}`;
       const status = document.getElementById('ws-status');
+      
+      // Fetch initial snapshot instantly so map works without WS dependency
+      const r = await api('GET', '/fleet/dashboard');
+      if (r?.ok && r.d.vehicles) {
+        handleWS({ type: 'fleet_snapshot', vehicles: r.d.vehicles });
+      }
+
+      const wsUrl = `${API_BASE.replace('http', 'ws')}/ws/fleet/FLT-DEFAULT?token=${TOKEN}`;
       try {
         WS = new WebSocket(wsUrl);
         WS.onopen = () => { status.textContent = 'Live — updating every 10s'; status.style.color = 'var(--c-green)'; };
         WS.onmessage = e => handleWS(JSON.parse(e.data));
-        WS.onclose = () => { status.textContent = 'Disconnected'; status.style.color = 'var(--c-red)'; };
-        WS.onerror = () => { status.textContent = 'WebSocket unavailable in this environment'; status.style.color = 'var(--c-amber)'; };
+        WS.onclose = () => { status.textContent = 'Disconnected (Using API Snapshot)'; status.style.color = 'var(--c-amber)'; };
+        WS.onerror = () => { status.textContent = 'WebSocket unavailable (Using API Snapshot)'; status.style.color = 'var(--c-amber)'; };
       } catch { status.textContent = 'Could not connect'; }
     }
 
@@ -3730,6 +3756,28 @@
       if (msg.type === 'fleet_snapshot' || msg.type === 'fleet_update') {
         const vs = msg.vehicles || [];
         document.getElementById('live-ct').textContent = `${vs.length} vehicle${vs.length !== 1 ? 's' : ''}`;
+        
+        // Dynamically plot dots on map
+        const mapArea = document.querySelector('.map-area');
+        if (mapArea) {
+          mapArea.querySelectorAll('.dynamic-dot').forEach(d => d.remove());
+          vs.forEach((v, i) => {
+            let top = v.location?.lat ? ((7.4 - v.location.lat) / 0.1) * 100 : 30 + (Math.random() * 40);
+            let left = v.location?.lng ? ((v.location.lng - 3.9) / 0.1) * 100 : 30 + (Math.random() * 40);
+            const dot = document.createElement('div');
+            dot.className = 'map-dot dynamic-dot';
+            dot.style.top = `${Math.max(5, Math.min(95, top))}%`;
+            dot.style.left = `${Math.max(5, Math.min(95, left))}%`;
+            if (v.status === 'critical') {
+              dot.style.background = 'var(--c-red)';
+              dot.style.boxShadow = '0 0 10px var(--c-red)';
+            } else if (v.status === 'warning') {
+              dot.style.background = 'var(--c-amber)';
+            }
+            mapArea.appendChild(dot);
+          });
+        }
+
         document.getElementById('live-feed').innerHTML = !vs.length
           ? '<div class="empty"><p>No vehicles transmitting</p></div>'
           : vs.map(v => `
