@@ -5,11 +5,15 @@ Complete production-ready FastAPI application.
 import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+
+from redis import asyncio as aioredis
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
 
 from backend.core.database import init_db
 from backend.routers import (
@@ -45,6 +49,12 @@ def validate_environment():
 async def lifespan(app: FastAPI):
     validate_environment()
     await init_db()
+    
+    # Initialize Redis for caching
+    redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+    redis = aioredis.from_url(redis_url)
+    FastAPICache.init(RedisBackend(redis), prefix="tah-cache")
+    
     print("=" * 50)
     print("  THE AUTOMAT HUB — TRUST PROTOCOL")
     print(f"  Environment: {settings.ENVIRONMENT}")
@@ -106,12 +116,21 @@ app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
 @app.get("/app", include_in_schema=False)
 async def app_redirect():
-    return RedirectResponse(url="/frontend/index.html")
+    return FileResponse("frontend/index.html")
 
 @app.get("/", include_in_schema=False)
-async def root():
-    return RedirectResponse(url="/frontend/index.html")
+async def serve_frontend():
+    """Serves the main application directly at the root URL."""
+    return FileResponse("frontend/index.html")
 
-@app.get("/health", tags=["Health"])
-async def health():
-    return {"status": "healthy", "environment": settings.ENVIRONMENT}
+@app.get("/cov", include_in_schema=False)
+async def serve_cov():
+    """Serves the Connect Vehicle page at the clean /cov URL"""
+    return FileResponse("frontend/connect-vehicle.html")
+
+@app.get("/api/health", tags=["Health"])
+async def health_check():
+    return {
+        "name": "The Automat Hub — Trust Protocol",
+        "status": "healthy"
+    }

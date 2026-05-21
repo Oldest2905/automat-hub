@@ -2837,7 +2837,8 @@
       if (auth && TOKEN) h['Authorization'] = `Bearer ${TOKEN}`;
       try {
         const r = await fetch(`${API_BASE}${path}`, {
-          method, headers: h, body: body ? JSON.stringify(body) : null
+          method, headers: h, body: body ? JSON.stringify(body) : null,
+          cache: 'no-store'
         });
         const d = await r.json();
         if (r.status === 401) { doLogout(); return null; }
@@ -2851,7 +2852,7 @@
       const h = {};
       if (TOKEN) h['Authorization'] = `Bearer ${TOKEN}`;
       try {
-        const r = await fetch(url, { method, headers: h });
+        const r = await fetch(url, { method, headers: h, cache: 'no-store' });
         const d = await r.json();
         return { ok: r.ok, st: r.status, d };
       } catch { return { ok: false, d: { detail: 'Network error' } }; }
@@ -3014,7 +3015,7 @@
       go('dashboard');
 
       // If returning from the connect page, refresh vehicles automatically
-      if (document.referrer.includes('connect-vehicle')) {
+      if (document.referrer.includes('/cov')) {
         setTimeout(() => {
           go('my-vehicles');
           toast('Vehicle Connected', 'Your connection has been saved.', 'ok');
@@ -3070,7 +3071,7 @@
 
     function openVehicleConnect(vehicleId, vehicleName, currentMethod) {
       // Build the connect URL with vehicle context
-      const connectUrl = `/frontend/connect-vehicle.html?vehicle_id=${vehicleId}`;
+      const connectUrl = `/cov?vehicle_id=${vehicleId}`;
 
       // Show a quick modal first so the user chooses OBD or Manufacturer
       // before being redirected

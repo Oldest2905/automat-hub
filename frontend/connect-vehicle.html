@@ -722,7 +722,10 @@ async function api(method, path, body=null, auth=true) {
   const h = { 'Content-Type': 'application/json' };
   if (auth && TOKEN) h['Authorization'] = `Bearer ${TOKEN}`;
   try {
-    const r = await fetch(API + path, { method, headers: h, body: body ? JSON.stringify(body) : null });
+    const r = await fetch(API + path, { 
+      method, headers: h, body: body ? JSON.stringify(body) : null,
+      cache: 'no-store'
+    });
     const d = await r.json();
     return { ok: r.ok, d };
   } catch { return { ok: false, d: { detail: 'Network error' } }; }
@@ -964,6 +967,9 @@ async function loadManufacturers() {
     ALL_MANUFACTURERS = r.d.all_supported || [];
     renderMfrs(r.d.popular_in_nigeria || [], 'popular-grid');
     renderMfrs(ALL_MANUFACTURERS, 'all-grid');
+          } else {
+            const errHtml = `<div style="grid-column:1/-1;color:var(--red);padding:12px;background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);border-radius:8px;font-size:0.8rem">Failed to load manufacturers. Check your server connection.</div>`;
+            document.getElementById('popular-grid').innerHTML = errHtml;
   }
 }
 
@@ -1046,7 +1052,7 @@ async function registerAdapter() {
   if(r?.ok) {
     btn.textContent = '✓ Registered — Monitoring Active';
     btn.className = 'btn btn-green btn-block';
-    setTimeout(() => window.location.href = '/frontend/index.html#my-vehicles', 2000);
+    setTimeout(() => window.location.href = '/#my-vehicles', 2000);
   } else {
     btn.textContent = 'Register Adapter to This Vehicle'; btn.disabled = false;
     toast('Error', r?.d?.detail || 'Failed', 'err');

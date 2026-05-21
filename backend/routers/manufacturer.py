@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from fastapi_cache.decorator import cache
 from pydantic import BaseModel
 from typing import Optional
 
@@ -42,6 +43,7 @@ router = APIRouter(prefix="/manufacturer", tags=["Vehicle Manufacturer Connectio
 # ── GET SUPPORTED MANUFACTURERS ──────────────────────────────
 
 @router.get("/list", response_model=dict, summary="Get all supported car manufacturers")
+@cache(expire=3600)
 async def list_manufacturers():
     """
     Returns all 15 supported manufacturers with their models.
