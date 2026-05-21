@@ -25,6 +25,7 @@ python-multipart==0.0.9
 # Rate Limiting
 slowapi==0.1.9
 redis==5.0.4
+fastapi-cache2[redis]>=0.2.1
 
 # Background Jobs
 celery==5.3.6
