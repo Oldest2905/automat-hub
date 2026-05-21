@@ -957,7 +957,103 @@ function advanceOBDStep(step) {
   }
 }
 
-// Remaining functions mapping to standard HTML UI features are assumed included in your ready-made file
+async function loadManufacturers() {
+  if (ALL_MANUFACTURERS.length > 0) return;
+  const r = await api('GET', '/manufacturer/list', null, false);
+  if (r?.ok) {
+    ALL_MANUFACTURERS = r.d.all_supported || [];
+    renderMfrs(r.d.popular_in_nigeria || [], 'popular-grid');
+    renderMfrs(ALL_MANUFACTURERS, 'all-grid');
+  }
+}
+
+function renderMfrs(list, containerId) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  c.innerHTML = list.map(m => `
+    <div class="mfr-card" onclick="selectMfr('${m.id}', '${m.name}', '${m.logo}')">
+      ${m.popular_in_nigeria ? `<div class="mfr-tag popular">POPULAR</div>` : ''}
+      <div class="mfr-logo">${m.logo}</div>
+      <div class="mfr-name">${m.name}</div>
+      <div class="mfr-models">${(m.models_in_nigeria||[]).slice(0,3).join(', ')}${m.models_in_nigeria?.length>3?'...':''}</div>
+    </div>
+  `).join('');
+}
+
+function filterMfr(val) {
+  const q = val.toLowerCase();
+  renderMfrs(ALL_MANUFACTURERS.filter(m => m.name.toLowerCase().includes(q) || (m.models_in_nigeria||[]).some(md => md.toLowerCase().includes(q))), 'all-grid');
+}
+
+async function selectMfr(id, name, logo) {
+  SELECTED_MFR = id;
+  document.getElementById('flow-logo').textContent = logo;
+  document.getElementById('flow-title').textContent = `Connect ${name}`;
+  document.getElementById('connect-btn-name').textContent = name;
+  document.getElementById('connect-flow').classList.add('visible');
+  
+  const r = await api('GET', '/fleet/dashboard');
+  const sel = document.getElementById('vehicle-select');
+  if (r?.ok && r.d.vehicles?.length) {
+    sel.innerHTML = r.d.vehicles.map(v => `<option value="${v.vehicle_id}">${v.make} ${v.model} (${v.plate_number})</option>`).join('');
+    if (VEHICLE_ID) sel.value = VEHICLE_ID;
+  } else {
+    sel.innerHTML = '<option value="">No vehicles found. Add one first.</option>';
+  }
+
+  const mfr = ALL_MANUFACTURERS.find(m => m.id === id);
+  const fields = mfr?.data_fields || ['odometer', 'fuel_level', 'dtc_codes'];
+  document.getElementById('flow-fields').innerHTML = fields.map(f => `<div class="df">${f.replace(/_/g, ' ')}</div>`).join('');
+  document.getElementById('oauth-url-display').textContent = 'Click Connect to generate secure login URL...';
+}
+
+function closeFlow() { document.getElementById('connect-flow').classList.remove('visible'); }
+
+async function doOAuthConnect() {
+  const vid = document.getElementById('vehicle-select').value;
+  if (!vid) { al('flow-alert', 'Please select a vehicle first', 'err'); return; }
+  const btn = document.getElementById('connect-btn');
+  btn.innerHTML = '<div class="spin" style="display:block"></div> Connecting...';
+  btn.disabled = true;
+  const r = await api('GET', `/manufacturer/connect/${SELECTED_MFR}?vehicle_id=${vid}`);
+  if (!r?.ok) {
+    al('flow-alert', r?.d?.detail || 'Failed to initiate connection', 'err');
+    btn.innerHTML = 'Connect to Manufacturer'; btn.disabled = false;
+    return;
+  }
+  document.getElementById('oauth-url-display').innerHTML = `<a href="${r.d.oauth_url}" target="_self" style="color:var(--orange)">${r.d.oauth_url}</a>`;
+  al('flow-alert', 'Redirecting to official manufacturer portal...', 'ok');
+  setTimeout(() => window.location.href = r.d.oauth_url, 1500);
+}
+
+async function loadOBDVehicles() {
+  const r = await api('GET', '/fleet/dashboard');
+  const sel = document.getElementById('obd-vehicle-select');
+  if (r?.ok && r.d.vehicles?.length) {
+    sel.innerHTML = '<option value="">Select your vehicle...</option>' + r.d.vehicles.map(v => `<option value="${v.vehicle_id}">${v.make} ${v.model} (${v.plate_number})</option>`).join('');
+    if (VEHICLE_ID) sel.value = VEHICLE_ID;
+  } else {
+    sel.innerHTML = '<option value="">No vehicles found. Add one first.</option>';
+  }
+}
+
+async function registerAdapter() {
+  const vid = document.getElementById('obd-vehicle-select').value;
+  if(!vid) { toast('Error', 'Select a vehicle', 'err'); return; }
+  const btn = document.getElementById('register-btn');
+  btn.innerHTML = 'Registering...'; btn.disabled = true;
+  const r = await api('POST', `/manufacturer/connect-obd?vehicle_id=${vid}&adapter_id=${PAIRED_ADAPTER.id}`);
+  if(r?.ok) {
+    btn.textContent = '✓ Registered — Monitoring Active';
+    btn.className = 'btn btn-green btn-block';
+    setTimeout(() => window.location.href = '/frontend/index.html#my-vehicles', 2000);
+  } else {
+    btn.textContent = 'Register Adapter to This Vehicle'; btn.disabled = false;
+    toast('Error', r?.d?.detail || 'Failed', 'err');
+  }
+}
+
+loadOBDVehicles();
 </script>
 </body>
 </html>

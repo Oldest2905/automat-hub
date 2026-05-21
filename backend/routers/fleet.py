@@ -126,7 +126,11 @@ async def add_vehicle_to_fleet(
         sa_select(User).where(User.user_id == user_id)
     )
     user = user_result.scalar_one_or_none()
-    allowed_slots = getattr(user, "vehicle_slots", 1) if user else 1
+    
+    if user and getattr(user, "role", "") == "admin":
+        allowed_slots = 999999  # CEO Lifetime Admin Bypass
+    else:
+        allowed_slots = getattr(user, "vehicle_slots", 1) if user else 1
 
     if current_vehicle_count >= allowed_slots:
         raise HTTPException(

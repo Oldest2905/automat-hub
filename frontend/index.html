@@ -3154,7 +3154,7 @@
       const dcpR = USER?.role === 'admin' ? results[1] : null;
 
       const total = dcpR?.d?.total || 0;
-      const sub = subR?.d?.subscription;
+    const sub = USER?.role === 'admin' ? { plan: 'Lifetime Admin', vehicle_slots: 'Unlimited', days_remaining: '∞', is_active: true, status: 'active' } : subR?.d?.subscription;
 
       document.getElementById('dash-stats').innerHTML = `
     <div class="stat"><div class="stat-label">Total DCPs Issued</div><div class="stat-val">${total}</div><div class="stat-meta">On the ledger</div></div>
@@ -3798,117 +3798,7 @@
         api('GET', '/subscription/status'),
         api('GET', '/subscription/pricing', null, false)
       ]);
-      const sub = st?.d?.subscription;
-      if (sub) {
-        document.getElementById('sub-cur').innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:rgba(255,255,255,.03);border-radius:var(--r);border:1px solid var(--c-border)">
-        <div>
-          <div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;letter-spacing:.1em">Current Plan</div>
-          <div style="font-family:var(--f-display);font-size:1.4rem;letter-spacing:.04em;text-transform:capitalize">${sub.plan}</div>
-          <div style="font-size:.72rem;color:var(--c-text3)">${sub.vehicle_slots} slot${sub.vehicle_slots !== 1 ? 's' : ''} · ${sub.days_remaining ?? '—'} days remaining</div>
-        </div>
-        <span class="badge ${sub.is_active ? 'b-green' : 'b-amber'}">${sub.is_active ? 'Active' : sub.status}</span>
-      </div>`;
-      }
-      const pricing = pr?.d?.pricing;
-      if (pricing) {
-        const allPlans = [
-          { key: 'private', name: 'PRIVATE OWNER', data: pricing.private_owner, roles: ['private_owner', 'admin'] },
-          { key: 'fleet', name: 'FLEET MANAGER', data: pricing.fleet, featured: true, roles: ['fleet_owner', 'admin'] },
-          { key: 'reseller', name: 'DEALER RESELLER', data: pricing.reseller, roles: ['reseller', 'admin'] }
-        ];
-        const availablePlans = allPlans.filter(p => p.roles.includes(USER?.role));
-        document.getElementById('sub-plans').innerHTML = `
-      <div class="plan-grid">${availablePlans.map(pl => !pl.data ? '' : `
-        <div class="plan-card ${pl.featured ? 'featured' : ''}">
-          ${pl.featured ? '<div class="plan-top-badge">RECOMMENDED</div>' : ''}
-          <div class="plan-name">${pl.name}</div>
-          <div class="plan-price">NGN ${(pl.data.price_ngn || 0).toLocaleString()} <small>/month</small></div>
-          <div class="plan-features">${(pl.data.features || []).map(f => `<div class="pf">${f}</div>`).join('')}</div>
-          <button class="btn btn-${pl.featured ? 'orange' : 'ghost'} btn-block btn-sm" style="margin-top:14px" onclick="initSub('${pl.key}')">Choose Plan</button>
-        </div>`).join('')}</div>`;
-      }
-    }
-
-    async function initSub(plan) {
-      const r = await api('POST', '/subscription/initiate', { plan, vehicle_count: 1 });
-      if (!r?.ok) { toast('Error', r?.d?.detail || 'Failed', 'err'); return; }
-      if (r.d.payment_url) {
-        toast('Redirecting to Payment Gateway', 'Complete payment to activate', 'info', 2000);
-        // Using location.href bypasses browser popup blockers
-        setTimeout(() => window.location.href = r.d.payment_url, 800);
-      }
-    }
-
-    // ── PROFILE ──────────────────────────────────────────────────
-    async function loadProfile() {
-      const r = await api('GET', '/auth/me');
-      if (!r?.ok) return;
-      const u = r.d.user;
-      document.getElementById('p-name').value = u.full_name || '';
-      document.getElementById('p-phone').value = u.phone || '';
-      document.getElementById('p-co').value = u.company_name || '';
-      document.getElementById('p-addr').value = u.address || '';
-    }
-
-    async function doUpdateProfile(e) {
-      e.preventDefault();
-      const r = await api('PUT', '/auth/me', {
-        full_name: document.getElementById('p-name').value,
-        phone: document.getElementById('p-phone').value,
-        company_name: document.getElementById('p-co').value,
-        address: document.getElementById('p-addr').value,
-        state: document.getElementById('p-state').value
-      });
-      if (r?.ok) {
-        toast('Profile Updated', '', 'ok');
-        USER.full_name = document.getElementById('p-name').value;
-        localStorage.setItem('tah_user', JSON.stringify(USER));
-        document.getElementById('s-name').textContent = USER.full_name;
-        document.getElementById('s-av').textContent = USER.full_name[0];
-      }
-    }
-
-    async function doChangePW(e) {
-      e.preventDefault();
-      hideAlert('pw-alert');
-      const nw = document.getElementById('pw-new').value;
-      const cf = document.getElementById('pw-cfm').value;
-      if (nw !== cf) { showAlert('pw-alert', 'Passwords do not match'); return; }
-      if (nw.length < 8) { showAlert('pw-alert', 'Min 8 characters'); return; }
-      const r = await api('POST', '/auth/change-password', {
-        current_password: document.getElementById('pw-cur').value,
-        new_password: nw
-      });
-      if (r?.ok) toast('Password Changed', '', 'ok');
-      else showAlert('pw-alert', r?.d?.detail || 'Failed');
-    }
-
-    // ── MODAL ────────────────────────────────────────────────────
-    function openModal(id) { document.getElementById(id).classList.add('open'); }
-    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-    document.querySelectorAll('.modal-bg').forEach(m => {
-      m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
-    });
-
-    // ── UTILS ────────────────────────────────────────────────────
-    function fmt(iso) {
-      if (!iso) return '';
-      return new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    }
-
-    // ── SESSION RESTORE ──────────────────────────────────────────
-    if (TOKEN && USER) {
-      document.getElementById('auth-gate').style.display = 'none';
-      document.getElementById('app').style.display = 'flex';
-      bootApp();
-    }
-  </script>
-</body>
-
-</html> api('GET', '/subscription/pricing', null, false)
-      ]);
-      const sub = st?.d?.subscription;
+    const sub = USER?.role === 'admin' ? { plan: 'Lifetime Admin', vehicle_slots: 'Unlimited', days_remaining: '∞', is_active: true, status: 'active' } : st?.d?.subscription;
       if (sub) {
         document.getElementById('sub-cur').innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:rgba(255,255,255,.03);border-radius:var(--r);border:1px solid var(--c-border)">
