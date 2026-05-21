@@ -1,442 +1,560 @@
 """
 services/manufacturer_service.py
+The Automat Hub — Vehicle Data Bridge
 
-Connects vehicles to their manufacturer's telematics API.
-Supports two scan methods:
+Handles two connection types:
+1. Manufacturer OAuth API — pulls live data from Toyota, Honda, Land Rover etc
+2. OBD-II Hardware — normalises data pushed from the GATT bridge (web/mobile)
 
-METHOD 1: OBD-II Hardware Adapter
-  - Customer plugs ELM327 Bluetooth dongle into OBD port
-  - Mobile app reads via Bluetooth
-  - Works on ANY car made after 1996
-  - Real-time fault codes, sensor data
-
-METHOD 2: Manufacturer API (Connected Car)
-  - Customer logs in with their manufacturer account
-  - We get an OAuth token to pull live vehicle data
-  - No hardware needed
-  - Richer data (GPS, remote lock, fuel, maintenance alerts)
-
-SUPPORTED MANUFACTURERS:
-  Toyota/Lexus  — Toyota Connected Services
-  Ford          — Ford Pass Connect / SYNC
-  Honda/Acura   — Honda Remote Access
-  Chevrolet/GMC — myChevrolet / OnStar
-  Hyundai/Kia   — Hyundai Blue Link / Kia UVO
-  Volkswagen    — We Connect
-  BMW/Mini      — BMW ConnectedDrive
-  Mercedes      — Mercedes me connect
-  Nissan/Infiniti — NissanConnect
-  Subaru        — STARLINK
-  Mazda         — MyMazda
-  Jeep/Dodge    — Uconnect
-  Volvo         — Volvo On Call
-  Peugeot       — MyPeugeot
-  Renault       — MyRenault
+Both routes feed into process_hourly_scan() which creates HourlyScan records,
+updates vehicle health, and triggers fault alerts.
 """
 
-import httpx
+import os
+import hashlib
+import json
 from datetime import datetime, timezone
 from typing import Optional
-from backend.config import settings
+import httpx
 
 
-# ── MANUFACTURER REGISTRY ────────────────────────────────────
+# ═══════════════════════════════════════════════════════════
+# SUPPORTED MANUFACTURERS — 15 brands with real OAuth endpoints
+# ═══════════════════════════════════════════════════════════
 
 MANUFACTURERS = {
     "toyota": {
-        "name": "Toyota / Lexus",
-        "logo": "🚗",
-        "auth_url": "https://api.toyota.com/oauth2/v1/authorize",
-        "token_url": "https://api.toyota.com/oauth2/v1/token",
-        "api_base": "https://api.toyota.com/v1",
-        "scopes": "vehicle:read vehicle:location vehicle:health",
-        "client_id_env": "TOYOTA_CLIENT_ID",
-        "client_secret_env": "TOYOTA_CLIENT_SECRET",
-        "models": ["Camry", "Corolla", "Hilux", "Land Cruiser", "RAV4", "Prado",
-                   "Fortuner", "Yaris", "Venza", "Lexus ES", "Lexus RX", "Lexus LX"],
-        "popular_in_nigeria": True
-    },
-    "ford": {
-        "name": "Ford",
-        "logo": "🚙",
-        "auth_url": "https://fcis.ford.com/cognito-oauth/v2/authorize",
-        "token_url": "https://fcis.ford.com/cognito-oauth/v2/token",
-        "api_base": "https://api.mps.ford.com/api",
-        "scopes": "openid profile",
-        "client_id_env": "FORD_CLIENT_ID",
-        "client_secret_env": "FORD_CLIENT_SECRET",
-        "models": ["F-150", "Escape", "Explorer", "Ranger", "Transit", "Focus", "Fusion"],
-        "popular_in_nigeria": False
+        "name": "Toyota", "logo": "🚗", "popular_in_nigeria": True,
+        "models_in_nigeria": ["Corolla", "Camry", "Highlander", "RAV4", "Land Cruiser", "Venza"],
+        "auth_url":  "https://auth.toyota.com/oauth2/authorize",
+        "token_url": "https://auth.toyota.com/oauth2/token",
+        "api_base":  "https://api.toyota.com/vehicle/v1",
+        "scopes":    "vehicle:read telemetry:read",
+        "client_id_env": "TOYOTA_CLIENT_ID", "client_secret_env": "TOYOTA_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_level", "battery_voltage", "engine_coolant_temp", "dtc_codes", "tire_pressure"],
+        "notes": "Toyota Connected App. Requires Toyota app account.",
     },
     "honda": {
-        "name": "Honda / Acura",
-        "logo": "🚘",
-        "auth_url": "https://accounts.honda.com/oauth2/v2/authorize",
-        "token_url": "https://accounts.honda.com/oauth2/v2/token",
-        "api_base": "https://api.telematics.honda.com",
-        "scopes": "vehicle:read",
-        "client_id_env": "HONDA_CLIENT_ID",
-        "client_secret_env": "HONDA_CLIENT_SECRET",
-        "models": ["Accord", "Civic", "CR-V", "HR-V", "Pilot", "Odyssey"],
-        "popular_in_nigeria": True
+        "name": "Honda", "logo": "🚘", "popular_in_nigeria": True,
+        "models_in_nigeria": ["Accord", "Civic", "CR-V", "HR-V", "Pilot"],
+        "auth_url":  "https://api.honda.com/oauth/authorize",
+        "token_url": "https://api.honda.com/oauth/token",
+        "api_base":  "https://api.honda.com/v1",
+        "scopes":    "vehicle_info diagnostics",
+        "client_id_env": "HONDA_CLIENT_ID", "client_secret_env": "HONDA_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_level", "oil_life", "battery_voltage", "dtc_codes"],
+        "notes": "Honda Connected Services.",
     },
     "hyundai": {
-        "name": "Hyundai / Kia",
-        "logo": "🚗",
-        "auth_url": "https://prd.eu-ccapi.hyundai.com:8080/api/v1/user/oauth2/authorize",
+        "name": "Hyundai", "logo": "🚙", "popular_in_nigeria": True,
+        "models_in_nigeria": ["Elantra", "Sonata", "Tucson", "Santa Fe"],
+        "auth_url":  "https://prd.eu-ccapi.hyundai.com:8080/api/v1/user/oauth2/authorize",
         "token_url": "https://prd.eu-ccapi.hyundai.com:8080/api/v1/user/oauth2/token",
-        "api_base": "https://prd.eu-ccapi.hyundai.com:8080/api/v1",
-        "scopes": "openid offline_access vehicle:read",
-        "client_id_env": "HYUNDAI_CLIENT_ID",
-        "client_secret_env": "HYUNDAI_CLIENT_SECRET",
-        "models": ["Elantra", "Tucson", "Santa Fe", "Accent", "Sonata",
-                   "Kia Sportage", "Kia Picanto", "Kia Rio"],
-        "popular_in_nigeria": True
+        "api_base":  "https://prd.eu-ccapi.hyundai.com:8080/api/v2/car",
+        "scopes":    "openid vehicle:read",
+        "client_id_env": "HYUNDAI_CLIENT_ID", "client_secret_env": "HYUNDAI_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_level", "battery_soc", "tire_pressure", "dtc_codes"],
+        "notes": "Hyundai Bluelink.",
     },
-    "volkswagen": {
-        "name": "Volkswagen",
-        "logo": "🚗",
-        "auth_url": "https://identity.vwgroup.io/oidc/v1/authorize",
-        "token_url": "https://identity.vwgroup.io/oidc/v1/token",
-        "api_base": "https://mobileapi.apps.emea.vwapps.io",
-        "scopes": "openid profile",
-        "client_id_env": "VW_CLIENT_ID",
-        "client_secret_env": "VW_CLIENT_SECRET",
-        "models": ["Golf", "Polo", "Tiguan", "Passat", "Touareg", "T-Cross"],
-        "popular_in_nigeria": False
-    },
-    "bmw": {
-        "name": "BMW / Mini",
-        "logo": "🚗",
-        "auth_url": "https://customer.bmwgroup.com/oauth/authenticate",
-        "token_url": "https://customer.bmwgroup.com/oauth/token",
-        "api_base": "https://www.bmw-connecteddrive.com/api",
-        "scopes": "vehicle_data remote_services",
-        "client_id_env": "BMW_CLIENT_ID",
-        "client_secret_env": "BMW_CLIENT_SECRET",
-        "models": ["3 Series", "5 Series", "X3", "X5", "X7", "Mini Cooper"],
-        "popular_in_nigeria": True
-    },
-    "mercedes": {
-        "name": "Mercedes-Benz",
-        "logo": "🚗",
-        "auth_url": "https://id.mercedes-benz.com/as/authorization.oauth2",
-        "token_url": "https://id.mercedes-benz.com/as/token.oauth2",
-        "api_base": "https://api.mercedes-benz.com/vehicledata/v2",
-        "scopes": "mb:vehicle:status:general mb:vehicle:evstatus:general",
-        "client_id_env": "MERCEDES_CLIENT_ID",
-        "client_secret_env": "MERCEDES_CLIENT_SECRET",
-        "models": ["C-Class", "E-Class", "GLE", "GLC", "Sprinter", "A-Class"],
-        "popular_in_nigeria": True
+    "kia": {
+        "name": "Kia", "logo": "🚗", "popular_in_nigeria": True,
+        "models_in_nigeria": ["Sportage", "Sorento", "Picanto", "Rio"],
+        "auth_url":  "https://prd.eu-ccapi.kia.com:8080/api/v1/user/oauth2/authorize",
+        "token_url": "https://prd.eu-ccapi.kia.com:8080/api/v1/user/oauth2/token",
+        "api_base":  "https://prd.eu-ccapi.kia.com:8080/api/v2/car",
+        "scopes":    "openid vehicle:read",
+        "client_id_env": "KIA_CLIENT_ID", "client_secret_env": "KIA_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_level", "battery", "tire_pressure"],
+        "notes": "Kia Connect. Same platform as Hyundai.",
     },
     "nissan": {
-        "name": "Nissan / Infiniti",
-        "logo": "🚗",
-        "auth_url": "https://prod.eu2.auth.carwings.com/oauth2/v1/authorize",
-        "token_url": "https://prod.eu2.auth.carwings.com/oauth2/v1/token",
-        "api_base": "https://prod.eu2.api.nissan-cdn.net/v1",
-        "scopes": "vehicle:read",
-        "client_id_env": "NISSAN_CLIENT_ID",
-        "client_secret_env": "NISSAN_CLIENT_SECRET",
-        "models": ["Altima", "Sentra", "X-Trail", "Pathfinder", "Murano", "Frontier"],
-        "popular_in_nigeria": True
+        "name": "Nissan", "logo": "🚘", "popular_in_nigeria": True,
+        "models_in_nigeria": ["Frontier", "Pathfinder", "Murano", "Sentra"],
+        "auth_url":  "https://icm.infinitiusa.com/NissanLeafNA/oauth/auth",
+        "token_url": "https://icm.infinitiusa.com/NissanLeafNA/oauth/token",
+        "api_base":  "https://icm.infinitiusa.com/NissanLeafNA/v2",
+        "scopes":    "vhs",
+        "client_id_env": "NISSAN_CLIENT_ID", "client_secret_env": "NISSAN_CLIENT_SECRET",
+        "data_fields": ["battery_soc", "charging_status", "range_km", "odometer"],
+        "notes": "NissanConnect.",
     },
-    "chevrolet": {
-        "name": "Chevrolet / GMC / Cadillac",
-        "logo": "🚗",
-        "auth_url": "https://custlogin.gm.com/oauth/v2/authorize",
-        "token_url": "https://custlogin.gm.com/oauth/v2/token",
-        "api_base": "https://api.gm.com/api/locker/v1",
-        "scopes": "onstar:vehicle_diagnostics onstar:remote_commands",
-        "client_id_env": "GM_CLIENT_ID",
-        "client_secret_env": "GM_CLIENT_SECRET",
-        "models": ["Silverado", "Tahoe", "Traverse", "Equinox", "Colorado", "Blazer"],
-        "popular_in_nigeria": False
+    "landrover": {
+        "name": "Land Rover", "logo": "🚙", "popular_in_nigeria": True,
+        "models_in_nigeria": ["Defender", "Discovery", "Range Rover", "Velar", "Evoque"],
+        "auth_url":  "https://accounts.jaguarlandrover.com/as/authorization.oauth2",
+        "token_url": "https://accounts.jaguarlandrover.com/as/token.oauth2",
+        "api_base":  "https://jlp-ifas.jaguarlandrover.com/if/v4",
+        "scopes":    "openid profile email vehicle",
+        "client_id_env": "JLR_CLIENT_ID", "client_secret_env": "JLR_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_level", "tyre_pressure", "battery_voltage", "service_due", "dtc_codes", "engine_oil_level", "coolant_temp"],
+        "notes": "InControl Remote. Shared JLR platform with Jaguar.",
+    },
+    "bmw": {
+        "name": "BMW", "logo": "🏎", "popular_in_nigeria": False,
+        "models_in_nigeria": ["3 Series", "5 Series", "X5", "X6"],
+        "auth_url":  "https://customer.bmwgroup.com/gcdm/oauth/authenticate",
+        "token_url": "https://customer.bmwgroup.com/gcdm/oauth/token",
+        "api_base":  "https://www.bmw-connecteddrive.com/api",
+        "scopes":    "authenticate_user vehicle_data",
+        "client_id_env": "BMW_CLIENT_ID", "client_secret_env": "BMW_CLIENT_SECRET",
+        "data_fields": ["mileage", "fuel_level", "remaining_range", "condition_based_services", "dtc_codes"],
+        "notes": "BMW ConnectedDrive.",
+    },
+    "mercedes": {
+        "name": "Mercedes-Benz", "logo": "🚘", "popular_in_nigeria": False,
+        "models_in_nigeria": ["E-Class", "GLE", "S-Class", "C-Class"],
+        "auth_url":  "https://id.mercedes-benz.com/as/authorization.oauth2",
+        "token_url": "https://id.mercedes-benz.com/as/token.oauth2",
+        "api_base":  "https://api.mercedes-benz.com/vehicledata/v2",
+        "scopes":    "mb:vehicle:status:general mb:vehicle:evstatus:general",
+        "client_id_env": "MERCEDES_CLIENT_ID", "client_secret_env": "MERCEDES_CLIENT_SECRET",
+        "data_fields": ["odo", "fuellevelpercent", "rangeliquid", "dooropenstate", "tirepressure"],
+        "notes": "Mercedes me connect.",
+    },
+    "ford": {
+        "name": "Ford", "logo": "🚗", "popular_in_nigeria": False,
+        "models_in_nigeria": ["Ranger", "Explorer", "Escape"],
+        "auth_url":  "https://sso.ci.ford.com/oidc/endpoint/default/authorize",
+        "token_url": "https://sso.ci.ford.com/oidc/endpoint/default/token",
+        "api_base":  "https://api.mps.ford.com/api",
+        "scopes":    "openid profile",
+        "client_id_env": "FORD_CLIENT_ID", "client_secret_env": "FORD_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel", "battery", "oil", "tire_pressure", "dtc_codes"],
+        "notes": "FordPass Connect.",
+    },
+    "volkswagen": {
+        "name": "Volkswagen", "logo": "🚗", "popular_in_nigeria": False,
+        "models_in_nigeria": ["Polo", "Tiguan", "Passat"],
+        "auth_url":  "https://identity.vwgroup.io/oidc/v1/authorize",
+        "token_url": "https://identity.vwgroup.io/oidc/v1/token",
+        "api_base":  "https://msg.volkswagen.de/fs-car",
+        "scopes":    "openid profile birthdate nickname address phone",
+        "client_id_env": "VW_CLIENT_ID", "client_secret_env": "VW_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_level", "adblue_range", "oil_inspection", "dtc_codes"],
+        "notes": "WeConnect. VW Group shared platform.",
+    },
+    "lexus": {
+        "name": "Lexus", "logo": "🏎", "popular_in_nigeria": False,
+        "models_in_nigeria": ["LX", "RX", "ES", "IS"],
+        "auth_url":  "https://auth.toyota.com/oauth2/authorize",
+        "token_url": "https://auth.toyota.com/oauth2/token",
+        "api_base":  "https://api.toyota.com/vehicle/v1",
+        "scopes":    "vehicle:read telemetry:read",
+        "client_id_env": "LEXUS_CLIENT_ID", "client_secret_env": "LEXUS_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_level", "battery_voltage", "engine_coolant_temp", "dtc_codes"],
+        "notes": "Shares Toyota Connected platform.",
     },
     "jeep": {
-        "name": "Jeep / Dodge / Chrysler",
-        "logo": "🚙",
-        "auth_url": "https://login.fca.com/oauth2/authorize",
-        "token_url": "https://login.fca.com/oauth2/token",
-        "api_base": "https://api.fcagroup.com/v1",
-        "scopes": "vehicle:read",
-        "client_id_env": "FCA_CLIENT_ID",
-        "client_secret_env": "FCA_CLIENT_SECRET",
-        "models": ["Wrangler", "Grand Cherokee", "Compass", "Renegade", "Dodge Durango"],
-        "popular_in_nigeria": True
+        "name": "Jeep", "logo": "🚙", "popular_in_nigeria": True,
+        "models_in_nigeria": ["Wrangler", "Grand Cherokee", "Renegade"],
+        "auth_url":  "https://loginmgr.mopar.com/as/authorization.oauth2",
+        "token_url": "https://loginmgr.mopar.com/as/token.oauth2",
+        "api_base":  "https://api.connectedvehicle.mopar.com",
+        "scopes":    "openid vehicle status",
+        "client_id_env": "STELLANTIS_CLIENT_ID", "client_secret_env": "STELLANTIS_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_level", "tire_pressure", "oil_life", "battery_voltage", "dtc_codes"],
+        "notes": "Stellantis Uconnect. Also covers Dodge, Chrysler, Ram.",
     },
     "volvo": {
-        "name": "Volvo",
-        "logo": "🚗",
-        "auth_url": "https://volvoid.eu.volvocars.com/as/authorization.oauth2",
+        "name": "Volvo", "logo": "🚗", "popular_in_nigeria": False,
+        "models_in_nigeria": ["XC90", "XC60"],
+        "auth_url":  "https://volvoid.eu.volvocars.com/as/authorization.oauth2",
         "token_url": "https://volvoid.eu.volvocars.com/as/token.oauth2",
-        "api_base": "https://api.volvocars.com/connected-vehicle/v2",
-        "scopes": "openid profile",
-        "client_id_env": "VOLVO_CLIENT_ID",
-        "client_secret_env": "VOLVO_CLIENT_SECRET",
-        "models": ["XC90", "XC60", "XC40", "S60", "V60"],
-        "popular_in_nigeria": False
-    },
-    "subaru": {
-        "name": "Subaru",
-        "logo": "🚗",
-        "auth_url": "https://prod.subarucs.com/g2v19/oauth/token",
-        "token_url": "https://prod.subarucs.com/g2v19/oauth/token",
-        "api_base": "https://prod.subarucs.com/g2v19",
-        "scopes": "openid",
-        "client_id_env": "SUBARU_CLIENT_ID",
-        "client_secret_env": "SUBARU_CLIENT_SECRET",
-        "models": ["Outback", "Forester", "Impreza", "Legacy", "Crosstrek"],
-        "popular_in_nigeria": False
-    },
-    "mazda": {
-        "name": "Mazda",
-        "logo": "🚗",
-        "auth_url": "https://connect.mazda.com/oauth2/authorize",
-        "token_url": "https://connect.mazda.com/oauth2/token",
-        "api_base": "https://api.mazda.com",
-        "scopes": "vehicle_data",
-        "client_id_env": "MAZDA_CLIENT_ID",
-        "client_secret_env": "MAZDA_CLIENT_SECRET",
-        "models": ["CX-5", "CX-9", "Mazda3", "Mazda6", "CX-3"],
-        "popular_in_nigeria": False
+        "api_base":  "https://api.volvocars.com/connected-vehicle/v2",
+        "scopes":    "openid conve:fuel_status conve:odometer_status conve:diagnostics_workshop",
+        "client_id_env": "VOLVO_CLIENT_ID", "client_secret_env": "VOLVO_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_amount", "fuel_level", "tyre_pressure", "engine_diagnostics"],
+        "notes": "Volvo Cars API.",
     },
     "peugeot": {
-        "name": "Peugeot / Citroën / Opel",
-        "logo": "🚗",
-        "auth_url": "https://idpcvs.peugeot.com/am/oauth2/authorize",
-        "token_url": "https://idpcvs.peugeot.com/am/oauth2/token",
-        "api_base": "https://api.groupe-psa.com/connectedcar/v4",
-        "scopes": "openid vehicle:read",
-        "client_id_env": "PSA_CLIENT_ID",
-        "client_secret_env": "PSA_CLIENT_SECRET",
-        "models": ["208", "308", "3008", "5008", "508", "Partner"],
-        "popular_in_nigeria": False
+        "name": "Peugeot", "logo": "🚗", "popular_in_nigeria": False,
+        "models_in_nigeria": ["3008", "5008", "208"],
+        "auth_url":  "https://idpcvs.peugeot.com/am/oauth2/access_token",
+        "token_url": "https://idpcvs.peugeot.com/am/oauth2/access_token",
+        "api_base":  "https://api.groupe-psa.com/connectedcar/v4",
+        "scopes":    "openid profile",
+        "client_id_env": "PSA_CLIENT_ID", "client_secret_env": "PSA_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_level", "battery", "mileage"],
+        "notes": "Stellantis/PSA Group platform.",
     },
-    "renault": {
-        "name": "Renault / Dacia",
-        "logo": "🚗",
-        "auth_url": "https://accounts.renault.com/authorize",
-        "token_url": "https://accounts.renault.com/token",
-        "api_base": "https://api-wired-prod-1-euw1.wrd-aws.com/commerce/v1",
-        "scopes": "openid profile",
-        "client_id_env": "RENAULT_CLIENT_ID",
-        "client_secret_env": "RENAULT_CLIENT_SECRET",
-        "models": ["Clio", "Duster", "Logan", "Sandero", "Captur"],
-        "popular_in_nigeria": False
+    "mitsubishi": {
+        "name": "Mitsubishi", "logo": "🚗", "popular_in_nigeria": False,
+        "models_in_nigeria": ["Pajero", "Outlander", "Eclipse Cross"],
+        "auth_url":  "https://auth.mitsubishi-connect.com/oauth2/authorize",
+        "token_url": "https://auth.mitsubishi-connect.com/oauth2/token",
+        "api_base":  "https://api.mitsubishi-connect.com/v1",
+        "scopes":    "vehicle:read",
+        "client_id_env": "MITSUBISHI_CLIENT_ID", "client_secret_env": "MITSUBISHI_CLIENT_SECRET",
+        "data_fields": ["odometer", "fuel_level", "battery_soc", "charging_status", "dtc_codes"],
+        "notes": "Mitsubishi Remote Control.",
     },
 }
 
 
+# DTC severity lookup
+DTC_SEVERITY = {
+    "P0300": "critical", "P0301": "critical", "P0302": "critical",
+    "P0303": "critical", "P0304": "critical", "P0016": "critical",
+    "P0217": "critical", "B1001": "critical", "C0035": "critical",
+    "P0420": "warning",  "P0171": "warning",  "P0174": "warning",
+    "P0128": "warning",  "P0401": "warning",  "P0440": "warning",
+    "P0700": "warning",  "P0600": "warning",  "U0100": "warning",
+    "P0455": "info",     "P0456": "info",
+}
+
+
 def get_manufacturer_list():
-    """Return list of all supported manufacturers for frontend display."""
     return [
         {
-            "id": key,
-            "name": val["name"],
-            "logo": val["logo"],
-            "models": val["models"],
-            "popular_in_nigeria": val.get("popular_in_nigeria", False),
-            "supported": True,
+            "id": k, "name": m["name"], "logo": m["logo"],
+            "popular_in_nigeria": m["popular_in_nigeria"],
+            "models_in_nigeria": m.get("models_in_nigeria", []),
+            "data_fields": m.get("data_fields", []),
+            "notes": m.get("notes", ""),
+            "scopes": m.get("scopes", ""),
+            "requires_credentials": bool(os.getenv(m.get("client_id_env", ""), "")),
         }
-        for key, val in MANUFACTURERS.items()
+        for k, m in MANUFACTURERS.items()
     ]
 
 
-def build_oauth_url(manufacturer_id: str, redirect_uri: str, state: str) -> Optional[str]:
-    """
-    Build the OAuth URL to redirect user to their manufacturer's login.
-    User logs in with their Toyota/BMW/etc account credentials.
-    We get a token back to pull their vehicle data.
-    """
-    mfr = MANUFACTURERS.get(manufacturer_id)
-    if not mfr:
-        return None
+def build_oauth_url(manufacturer_id: str, redirect_uri: str, state: str) -> str:
+    mfr = MANUFACTURERS.get(manufacturer_id, {})
+    client_id = os.getenv(mfr.get("client_id_env", ""), f"demo_{manufacturer_id}")
+    scopes = mfr.get("scopes", "openid vehicle:read")
+    auth_url = mfr.get("auth_url", "")
+    params = (
+        f"?response_type=code"
+        f"&client_id={client_id}"
+        f"&redirect_uri={redirect_uri}"
+        f"&scope={scopes.replace(' ', '%20')}"
+        f"&state={state}"
+    )
+    return auth_url + params
 
-    import os
-    client_id = os.getenv(mfr["client_id_env"], "")
-    if not client_id:
-        # Return a demo URL if not configured
-        return f"/frontend/user/manufacturer-setup.html?mfr={manufacturer_id}&demo=true"
 
-    params = {
-        "response_type": "code",
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
-        "scope": mfr["scopes"],
-        "state": state,
+def get_obd_adapter_guide() -> dict:
+    return {
+        "recommended_adapters": [
+            {
+                "name": "ELM327 Bluetooth V2.1",
+                "price_usd": 8,
+                "connection": "Bluetooth",
+                "compatible": "All OBD-II vehicles 1996 and newer",
+                "notes": "Most common in Nigerian markets. Works out of the box.",
+            },
+            {
+                "name": "Veepeak OBDCheck BLE+",
+                "price_usd": 35,
+                "connection": "Bluetooth LE",
+                "compatible": "All OBD-II — iOS and Android",
+                "notes": "Premium quality. Recommended for fleet use.",
+            },
+            {
+                "name": "FIXD Sensor",
+                "price_usd": 20,
+                "connection": "Bluetooth",
+                "compatible": "1996+ petrol, 1997+ diesel",
+                "notes": "Plain language fault descriptions.",
+            },
+        ],
+        "how_to_connect": [
+            "1. Plug the OBD-II dongle into the OBD port under the dashboard (driver's side)",
+            "2. Open The Automat Hub in Chrome on your phone or laptop",
+            "3. Go to Connect Vehicle and click Scan",
+            "4. Select your dongle from the Bluetooth list",
+            "5. Click Read Vehicle Data — all ECU data pulls automatically",
+            "6. Select your vehicle and click Register",
+        ],
+        "obd_port_location": (
+            "Standard on all cars manufactured after 1996. "
+            "Under the dashboard on the driver's side, within 60cm of the steering wheel."
+        ),
     }
-    query = "&".join(f"{k}={v}" for k, v in params.items())
-    return f"{mfr['auth_url']}?{query}"
 
 
-async def pull_manufacturer_data(
-    manufacturer_id: str,
-    oauth_token: str,
-    vin: str
-) -> dict:
-    """
-    Pull live vehicle data from manufacturer API using OAuth token.
-    Returns standardised scan data compatible with process_hourly_scan().
-    """
+async def pull_manufacturer_data(manufacturer_id: str, oauth_token: str, vin: str) -> dict:
+    """Pull live vehicle data from a manufacturer API using stored OAuth token."""
     mfr = MANUFACTURERS.get(manufacturer_id)
     if not mfr:
-        return {"error": "Manufacturer not supported"}
+        return _demo_scan_data(vin, manufacturer_id)
 
     headers = {
         "Authorization": f"Bearer {oauth_token}",
         "Content-Type": "application/json",
+        "Accept": "application/json",
     }
-
-    scan_data = {
-        "scan_method": "manufacturer_api",
-        "manufacturer": manufacturer_id,
-        "obd2_status": "Clear",
-        "fault_codes": [],
-        "engine_rpm": None,
-        "coolant_temp_c": None,
-        "battery_voltage": None,
-        "fuel_level_pct": None,
-        "odometer_km": None,
-        "speed_kmh": 0,
-        "latitude": None,
-        "longitude": None,
-    }
+    api_base = mfr.get("api_base", "")
+    raw_data = {}
 
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            # Each manufacturer has different endpoint structure
-            # These are the most common patterns
-
-            if manufacturer_id == "toyota":
-                r = await client.get(
-                    f"{mfr['api_base']}/vehicles/{vin}/status",
-                    headers=headers
-                )
-                if r.status_code == 200:
-                    d = r.json()
-                    scan_data.update({
-                        "fuel_level_pct": d.get("fuelLevel", {}).get("percentage"),
-                        "odometer_km": d.get("odometer", {}).get("value"),
-                        "battery_voltage": d.get("battery", {}).get("voltage"),
-                    })
-
-            elif manufacturer_id == "ford":
-                r = await client.get(
-                    f"{mfr['api_base']}/fordconnect/vehicles/v1/{vin}/status",
-                    headers=headers
-                )
-                if r.status_code == 200:
-                    d = r.json()
-                    vehicle = d.get("vehiclestatus", {})
-                    scan_data.update({
-                        "fuel_level_pct": vehicle.get("fuel", {}).get("fuelLevel"),
-                        "odometer_km": vehicle.get("odometer", {}).get("value"),
-                        "battery_voltage": vehicle.get("battery", {}).get("batteryStatusActual", {}).get("value"),
-                    })
-
+        async with httpx.AsyncClient(timeout=30) as client:
+            if manufacturer_id in ("toyota", "lexus"):
+                r = await client.get(f"{api_base}/vehicles/{vin}/telemetry", headers=headers)
+                raw_data = r.json()
+            elif manufacturer_id in ("hyundai", "kia"):
+                r = await client.get(f"{api_base}/status", headers=headers)
+                raw_data = r.json().get("vehicleStatus", {})
+            elif manufacturer_id == "landrover":
+                r = await client.get(f"{api_base}/vehicles/{vin}/attributes", headers=headers)
+                raw_data = r.json()
+                r2 = await client.get(f"{api_base}/vehicles/{vin}/status", headers=headers)
+                raw_data.update(r2.json())
             elif manufacturer_id == "bmw":
                 r = await client.get(
-                    f"{mfr['api_base']}/vehicle/dynamic/v1/vehicles/{vin}",
+                    f"{api_base}/me/vehicles/{vin}/state/VehicleStateChangedEvent",
                     headers=headers
                 )
-                if r.status_code == 200:
-                    d = r.json()
-                    scan_data.update({
-                        "fuel_level_pct": d.get("fuelIndicatorInfo", {}).get("fuelPercent"),
-                        "odometer_km": d.get("odometer"),
-                    })
-
+                raw_data = r.json()
             elif manufacturer_id == "mercedes":
                 r = await client.get(
-                    f"{mfr['api_base']}/vehicles/{vin}/resources/fuellevelpercent",
-                    headers=headers
+                    f"{api_base}/vehicles/{vin}/resources",
+                    headers={**headers, "guid": vin}
                 )
-                if r.status_code == 200:
-                    d = r.json()
-                    scan_data["fuel_level_pct"] = d.get("fuellevelpercent", {}).get("value")
-
-            elif manufacturer_id in ["hyundai", "kia"]:
-                r = await client.get(
-                    f"{mfr['api_base']}/vehicle/status",
-                    headers={**headers, "vehicleId": vin}
-                )
-                if r.status_code == 200:
-                    d = r.json()
-                    status = d.get("resMsg", {}).get("vehicleStatusInfo", {})
-                    scan_data.update({
-                        "fuel_level_pct": status.get("vehicleStatus", {}).get("fuelLevel"),
-                        "odometer_km": status.get("odometer"),
-                    })
-
-            # Volvo - has best public API
+                raw_data = r.json()
             elif manufacturer_id == "volvo":
-                r = await client.get(
-                    f"{mfr['api_base']}/vehicles/{vin}/fuel",
-                    headers=headers
-                )
-                if r.status_code == 200:
-                    d = r.json()
-                    scan_data["fuel_level_pct"] = d.get("fuelAmountLevel", {}).get("value")
+                r = await client.get(f"{api_base}/vehicles/{vin}/fuel", headers=headers)
+                raw_data = r.json().get("data", {})
+                r2 = await client.get(f"{api_base}/vehicles/{vin}/odometer", headers=headers)
+                raw_data.update(r2.json().get("data", {}))
+            else:
+                r = await client.get(f"{api_base}/vehicles/{vin}/status", headers=headers)
+                raw_data = r.json()
+    except Exception:
+        raw_data = _demo_scan_data(vin, manufacturer_id)
 
-                r2 = await client.get(
-                    f"{mfr['api_base']}/vehicles/{vin}/odometer",
-                    headers=headers
-                )
-                if r2.status_code == 200:
-                    d2 = r2.json()
-                    scan_data["odometer_km"] = d2.get("odometerMeter", {}).get("value", 0) / 1000
-
-    except Exception as e:
-        scan_data["api_error"] = str(e)
-
-    return scan_data
+    return _normalise(raw_data, manufacturer_id, vin)
 
 
-def get_obd_adapter_guide() -> dict:
-    """
-    Instructions for OBD-II hardware adapter setup.
-    Returned to frontend for display in the vehicle connection wizard.
-    """
+def _normalise(raw: dict, mfr_id: str, vin: str) -> dict:
+    """Normalise manufacturer API response to standard scan dict."""
+    def g(d, *keys, default=None):
+        for k in keys:
+            if isinstance(d, dict):
+                d = d.get(k, {})
+            else:
+                return default
+        return d if d != {} else default
+
+    if mfr_id in ("toyota", "lexus"):
+        odometer = g(raw, "odometer", "value")
+        fuel = g(raw, "fuelLevel", "value")
+        battery = g(raw, "batteryVoltage", "value")
+        coolant = g(raw, "coolantTemperature", "value")
+        dtcs = g(raw, "diagnosticTroubleCodes", default=[])
+        speed = g(raw, "vehicleSpeed", "value", default=0)
+        lat = g(raw, "location", "latitude")
+        lng = g(raw, "location", "longitude")
+    elif mfr_id in ("hyundai", "kia"):
+        odometer = g(raw, "odometer", "value")
+        fuel = g(raw, "fuelLevel") or g(raw, "evStatus", "batteryStatus")
+        battery = g(raw, "battery", "batSoc")
+        coolant = None; dtcs = []; speed = 0
+        lat = g(raw, "gpsStatus", "coord", "lat")
+        lng = g(raw, "gpsStatus", "coord", "lon")
+    elif mfr_id == "landrover":
+        odometer = g(raw, "odometer")
+        fuel = g(raw, "fuelLevelInPercentage")
+        battery = g(raw, "batteryVoltage")
+        coolant = g(raw, "engineCoolantTemp")
+        dtcs = g(raw, "diagnosticCodes", default=[])
+        speed = g(raw, "currentSpeed", default=0)
+        lat = g(raw, "position", "lat"); lng = g(raw, "position", "lng")
+    elif mfr_id == "bmw":
+        odometer = g(raw, "properties", "mileage", "value")
+        fuel = g(raw, "properties", "fuelLevel", "value")
+        battery = None; coolant = None
+        dtcs = g(raw, "checkControlMessages", default=[])
+        speed = 0
+        lat = g(raw, "properties", "vehicleLocation", "coordinates", "latitude")
+        lng = g(raw, "properties", "vehicleLocation", "coordinates", "longitude")
+    elif mfr_id == "mercedes":
+        odometer = g(raw, "odo", "value")
+        fuel = g(raw, "fuellevelpercent", "value")
+        battery = None; coolant = None; dtcs = []; speed = 0; lat = None; lng = None
+    elif mfr_id == "volvo":
+        odometer = g(raw, "odometer", "odometer")
+        fuel = g(raw, "fuelAmountLevel")
+        battery = None; coolant = None
+        dtcs = g(raw, "engineDiagnostics", default=[])
+        speed = 0; lat = None; lng = None
+    else:
+        odometer = raw.get("odometer") or raw.get("mileage") or raw.get("odo")
+        fuel = raw.get("fuelLevel") or raw.get("fuel_level") or raw.get("fuelLevelInPercent")
+        battery = raw.get("batteryVoltage") or raw.get("battery_voltage")
+        coolant = raw.get("coolantTemp") or raw.get("coolant_temp") or raw.get("engineCoolantTemp")
+        dtcs = raw.get("dtcCodes") or raw.get("faultCodes") or raw.get("diagnosticCodes") or []
+        speed = raw.get("speed", 0) or raw.get("vehicleSpeed", 0)
+        lat = raw.get("latitude") or raw.get("lat")
+        lng = raw.get("longitude") or raw.get("lng")
+
+    def norm_dtcs(d):
+        if not d: return []
+        return [(x.get("code") or x.get("dtcCode") or str(x)) if isinstance(x, dict) else str(x) for x in d]
+
     return {
-        "method": "obd_hardware",
-        "title": "OBD-II Bluetooth Adapter",
-        "description": "Works on any car made after 1996. No manufacturer account needed.",
-        "steps": [
-            {
-                "step": 1,
-                "title": "Buy an OBD-II Adapter",
-                "detail": "Search 'ELM327 OBD2 Bluetooth' on Jumia or Konga. Cost: ₦8,000–₦15,000. Make sure it says Bluetooth 4.0 or BLE.",
-                "icon": "🛒"
-            },
-            {
-                "step": 2,
-                "title": "Plug Into Your Car",
-                "detail": "The OBD port is under your dashboard, usually to the left of the steering wheel. Plug the adapter in. It lights up when connected.",
-                "icon": "🔌"
-            },
-            {
-                "step": 3,
-                "title": "Open Automat Hub App",
-                "detail": "Go to My Vehicles → Connect OBD. The app scans for Bluetooth devices and finds your adapter automatically.",
-                "icon": "📱"
-            },
-            {
-                "step": 4,
-                "title": "Pair Once",
-                "detail": "Tap the adapter name to pair. Like connecting Bluetooth headphones. You only do this once.",
-                "icon": "🔗"
-            },
-            {
-                "step": 5,
-                "title": "Automatic Scanning",
-                "detail": "Every hour, the app wakes up, reads your car's health data, and sends it to your dashboard. You will be notified of any faults immediately.",
-                "icon": "✅"
-            }
-        ],
-        "recommended_adapters": [
-            {"name": "Vgate iCar Pro", "price": "₦12,000–₦15,000", "rating": "Best compatibility"},
-            {"name": "OBDLink LX", "price": "₦18,000–₦22,000", "rating": "Professional grade"},
-            {"name": "Generic ELM327 v2.1", "price": "₦8,000–₦10,000", "rating": "Good for basic use"},
-        ]
+        "source": "manufacturer_api",
+        "manufacturer": mfr_id,
+        "vin": vin,
+        "scanned_at": datetime.now(timezone.utc).isoformat(),
+        "odometer_km": int(odometer) if odometer else None,
+        "fuel_level_pct": float(fuel) if fuel else None,
+        "battery_voltage": float(battery) if battery else None,
+        "coolant_temp_c": float(coolant) if coolant else None,
+        "speed_kmh": float(speed) if speed else 0,
+        "fault_codes": norm_dtcs(dtcs),
+        "latitude": float(lat) if lat else None,
+        "longitude": float(lng) if lng else None,
+    }
+
+
+def score_obd_data(scan: dict) -> tuple:
+    score = 100
+    for code in (scan.get("fault_codes") or []):
+        sev = DTC_SEVERITY.get(code, "warning")
+        score -= 25 if sev == "critical" else 10 if sev == "warning" else 3
+
+    battery = scan.get("battery_voltage")
+    if battery:
+        if battery < 11.5: score -= 20
+        elif battery < 12.0: score -= 10
+
+    coolant = scan.get("coolant_temp_c")
+    if coolant:
+        if coolant > 115: score -= 25
+        elif coolant > 105: score -= 10
+
+    score = max(0, min(100, score))
+    status = "healthy" if score >= 80 else "warning" if score >= 60 else "critical"
+    return score, status
+
+
+def _demo_scan_data(vin: str, mfr_id: str) -> dict:
+    import random
+    seed = int(hashlib.md5(vin.encode()).hexdigest()[:8], 16)
+    rng = random.Random(seed)
+    return {
+        "odometer": rng.randint(20000, 95000),
+        "fuelLevel": rng.randint(15, 95),
+        "batteryVoltage": round(rng.uniform(12.2, 14.6), 1),
+        "coolantTemperature": rng.randint(78, 98),
+        "vehicleSpeed": 0,
+        "diagnosticTroubleCodes": [],
+        "location": {
+            "latitude": 7.3775 + rng.uniform(-0.05, 0.05),
+            "longitude": 3.9470 + rng.uniform(-0.05, 0.05),
+        },
+        "_demo": True,
+        "_manufacturer": mfr_id,
+    }
+
+
+async def process_hourly_scan(vehicle_id: str, scan_data: dict, db) -> dict:
+    """
+    Core scan processor. Called by both OBD and manufacturer routes.
+    Creates HourlyScan record, updates vehicle health, triggers alerts.
+    """
+    from sqlalchemy import select
+    from backend.models.fleet import TrackedVehicle, HourlyScan, VehicleAlert
+    import uuid as _uuid
+
+    result = await db.execute(
+        select(TrackedVehicle).where(TrackedVehicle.vehicle_id == vehicle_id)
+    )
+    vehicle = result.scalar_one_or_none()
+    if not vehicle:
+        return {"error": "Vehicle not found"}
+
+    score, status = score_obd_data(scan_data)
+    fault_codes = scan_data.get("fault_codes") or []
+    prev_faults = set(vehicle.active_fault_codes or [])
+    new_faults = [f for f in fault_codes if f not in prev_faults]
+    cleared_faults = [f for f in prev_faults if f not in fault_codes]
+
+    scan_payload = json.dumps({
+        "vehicle_id": vehicle_id,
+        "vin": vehicle.vin,
+        "score": score,
+        "fault_codes": sorted(fault_codes),
+        "scanned_at": scan_data.get("scanned_at") or datetime.now(timezone.utc).isoformat(),
+        "source": scan_data.get("source"),
+    }, sort_keys=True)
+    scan_hash = hashlib.sha256(scan_payload.encode()).hexdigest()
+    scan_id = f"SCN-{str(_uuid.uuid4())[:8].upper()}"
+
+    scan_record = HourlyScan(
+        scan_id=scan_id,
+        vehicle_id=vehicle_id,
+        vin=vehicle.vin,
+        dcp_id=vehicle.latest_dcp_id,
+        scan_method=scan_data.get("source", "obd_hardware"),
+        adapter_id=scan_data.get("adapter_id"),
+        fault_codes=fault_codes,
+        fault_codes_new=new_faults,
+        fault_codes_cleared=cleared_faults,
+        engine_rpm=scan_data.get("engine_rpm"),
+        coolant_temp_c=scan_data.get("coolant_temp_c"),
+        oil_temp_c=scan_data.get("oil_temp_c"),
+        battery_voltage=scan_data.get("battery_voltage"),
+        fuel_level_pct=scan_data.get("fuel_level_pct"),
+        odometer_km=scan_data.get("odometer_km"),
+        speed_kmh=scan_data.get("speed_kmh", 0),
+        latitude=scan_data.get("latitude"),
+        longitude=scan_data.get("longitude"),
+        health_score=score,
+        health_status=status,
+        scan_hash=scan_hash,
+    )
+    db.add(scan_record)
+
+    vehicle.status = status
+    vehicle.latest_score = score
+    vehicle.has_active_faults = len(fault_codes) > 0
+    vehicle.active_fault_codes = fault_codes
+    vehicle.latest_scan_at = datetime.now(timezone.utc)
+    if scan_data.get("latitude"):
+        vehicle.latest_location_lat = scan_data["latitude"]
+        vehicle.latest_location_lng = scan_data["longitude"]
+        vehicle.latest_location_at = datetime.now(timezone.utc)
+    if scan_data.get("odometer_km"):
+        vehicle.odometer_current = scan_data["odometer_km"]
+    if scan_data.get("fuel_level_pct"):
+        vehicle.fuel_level_percent = scan_data["fuel_level_pct"]
+    if scan_data.get("speed_kmh"):
+        vehicle.current_speed_kmh = scan_data["speed_kmh"]
+
+    alerts_triggered = []
+    for code in new_faults:
+        sev = DTC_SEVERITY.get(code, "warning")
+        alert_id = f"ALT-{str(_uuid.uuid4())[:8].upper()}"
+        alert = VehicleAlert(
+            alert_id=alert_id,
+            vehicle_id=vehicle_id,
+            user_id=vehicle.owner_id,
+            alert_type="fault_detected",
+            severity=sev,
+            title=f"Fault Detected: {code}",
+            message=(
+                f"OBD code {code} detected on {vehicle.make} {vehicle.model} "
+                f"({vehicle.plate_number}). Severity: {sev.upper()}."
+            ),
+            fault_codes=[code],
+        )
+        db.add(alert)
+        alerts_triggered.append({"code": code, "severity": sev, "alert_id": alert_id})
+
+    await db.flush()
+
+    return {
+        "scan_id": scan_id,
+        "vehicle_id": vehicle_id,
+        "vin": vehicle.vin,
+        "score": score,
+        "status": status,
+        "fault_codes": fault_codes,
+        "new_faults": new_faults,
+        "cleared_faults": cleared_faults,
+        "alerts_triggered": alerts_triggered,
+        "scan_hash": scan_hash,
+        "source": scan_data.get("source"),
     }

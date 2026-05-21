@@ -17,6 +17,7 @@ from backend.routers import (
     fleet, reseller, admin, workshop, tracking
 )
 from backend.routers.subscription import router as subscription_router
+from backend.routers.manufacturer import router as manufacturer_router
 from backend.config import settings
 
 
@@ -94,6 +95,7 @@ app.include_router(reseller.router)
 app.include_router(admin.router)
 app.include_router(workshop.router)
 app.include_router(tracking.router)
+app.include_router(manufacturer_router)
 app.include_router(subscription_router)
 
 from fastapi.staticfiles import StaticFiles
@@ -101,6 +103,10 @@ from fastapi.staticfiles import StaticFiles
 # This serves your frontend folder at the /frontend path
 # Ensure the 'frontend' directory is in the same root folder as main.py
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
+
+@app.get("/app", include_in_schema=False)
+async def app_redirect():
+    return RedirectResponse(url="/frontend/index.html")
 
 @app.get("/", include_in_schema=False)
 async def root():

@@ -2824,10 +2824,7 @@
     // ═══════════════════════════════════════════════════════════
     // APP STATE
     // ═══════════════════════════════════════════════════════════
-    // Point this to your Render backend URL. If running locally, it falls back to localhost.
-    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:8000'
-      : 'https://automat-hub.onrender.com';
+    const API_BASE = window.location.origin;
     let TOKEN = localStorage.getItem('tah_token') || '';
     let USER = JSON.parse(localStorage.getItem('tah_user') || 'null');
     let CUR_PAGE = 'dashboard';
@@ -3006,7 +3003,23 @@
         safeShow('ws-register-card');
       }
 
+      // Show DCP Issue only to inspectors and admins
+      // Verify remains visible to everyone (it's a public function)
+      const dcpIssueNav = document.querySelector('[onclick="go(\'dcp-issue\')"]');
+      if (dcpIssueNav) {
+          const isAuthorised = ['inspector', 'admin'].includes(USER.role);
+          dcpIssueNav.style.display = isAuthorised ? '' : 'none';
+      }
+
       go('dashboard');
+
+      // If returning from the connect page, refresh vehicles automatically
+      if (document.referrer.includes('connect-vehicle')) {
+        setTimeout(() => {
+          go('my-vehicles');
+          toast('Vehicle Connected', 'Your connection has been saved.', 'ok');
+        }, 500);
+      }
     }
 
     // ── NAVIGATION ───────────────────────────────────────────────
@@ -3054,6 +3067,78 @@
     }
 
     function reload() { go(CUR_PAGE); }
+
+    function openVehicleConnect(vehicleId, vehicleName, currentMethod) {
+      // Build the connect URL with vehicle context
+      const connectUrl = `/frontend/connect-vehicle.html?vehicle_id=${vehicleId}`;
+
+      // Show a quick modal first so the user chooses OBD or Manufacturer
+      // before being redirected
+      const modal = document.getElementById('vehicle-modal');
+      const title = document.getElementById('vm-title');
+      const body = document.getElementById('vm-body');
+
+      if (!modal) {
+        // Fallback: just redirect directly
+        window.location.href = connectUrl;
+        return;
+      }
+
+      title.textContent = `Connect ${vehicleName}`;
+      body.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <p style="font-size:.82rem;color:var(--c-text2);line-height:1.6">
+            Choose how to connect this vehicle. Your data will sync to the DCP automatically every hour.
+          </p>
+
+          ${currentMethod ? `
+            <div style="padding:10px 12px;background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.2);border-radius:8px;font-size:.78rem;color:var(--c-green)">
+              Currently connected via: <strong>${currentMethod.replace('_', ' ')}</strong>
+            </div>` : ''}
+
+          <button class="btn btn-orange btn-block"
+            onclick="window.location.href='${connectUrl}&method=obd'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+            Connect OBD-II Dongle
+            <span style="font-size:.7rem;opacity:.7;margin-left:4px">All cars 1996+</span>
+          </button>
+
+          <button class="btn btn-ghost btn-block"
+            onclick="window.location.href='${connectUrl}&method=manufacturer'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            Connect Manufacturer Account
+            <span style="font-size:.7rem;opacity:.7;margin-left:4px">Toyota, Honda, LR, BMW...</span>
+          </button>
+
+          <button class="btn btn-danger btn-sm btn-block"
+            onclick="disconnectVehicle('${vehicleId}')"
+            ${!currentMethod ? 'style="display:none"' : ''}>
+            Disconnect Current Connection
+          </button>
+        </div>`;
+
+      openModal('vehicle-modal');
+    }
+
+    async function disconnectVehicle(vehicleId) {
+      if (!confirm('Remove the current connection? The vehicle will no longer sync automatically.')) return;
+      const r = await api('POST', `/manufacturer/disconnect/${vehicleId}`);
+      if (r?.ok) {
+        toast('Connection Removed', 'Vehicle disconnected. You can reconnect anytime.', 'ok');
+        closeModal('vehicle-modal');
+        loadMyVehicles(); // Refresh the vehicle cards
+      } else {
+        toast('Error', r?.d?.detail || 'Could not disconnect', 'err');
+      }
+    }
 
     // ── DASHBOARD ────────────────────────────────────────────────
     async function loadDashboard() {
@@ -3114,25 +3199,82 @@
       el.innerHTML = vehicles.map(v => {
         const hc = v.health_score >= 80 ? 'hi' : v.health_score >= 60 ? 'mid' : 'lo';
         return `<div class="vin-card" data-vin="${v.vin}">
-      <div class="vin-badge ${v.status === 'healthy' ? 'b-green' : v.status === 'critical' ? 'b-red' : 'b-amber'}">${v.status}</div>
-      <div style="font-family:var(--f-display);font-size:1.3rem;letter-spacing:.04em;margin-bottom:2px">${v.make} ${v.model}</div>
-      <div class="mono" style="font-size:.72rem;margin-bottom:10px">${v.vin}</div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:.72rem;color:var(--c-text3)">Health Score</span>
-        <span style="font-weight:700;color:${v.health_score >= 80 ? 'var(--c-green)' : v.health_score >= 60 ? 'var(--c-amber)' : 'var(--c-red)'}">${v.health_score || 'N/A'}</span>
-      </div>
-      <div class="hbar" style="margin-bottom:10px"><div class="hfill ${hc}" style="width:${v.health_score || 0}%"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--c-text3)">
-        <span>${v.plate_number}</span>
-        <span>${v.fault_count || 0} fault${v.fault_count !== 1 ? 's' : ''}</span>
-        <span>Last scan: ${v.last_scan ? fmt(v.last_scan) : 'Never'}</span>
-      </div>
-      <div style="display:flex;gap:7px;margin-top:12px">
-        <button class="btn btn-ghost btn-sm btn-block" onclick="showVehicleDetail('${v.vehicle_id}')">Details</button>
-        ${USER?.role !== 'private_owner' ? `<button class="btn btn-orange btn-sm btn-block" onclick="prepDCP('${v.vin}', '${v.make}', '${v.model}', '${v.year}', '${v.colour}')">Issue DCP</button>` : ''}
-      </div>
-    </div>`;
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <div class="vin-badge ${v.status==='healthy'?'b-green':v.status==='critical'?'b-red':'b-amber'}">${v.status}</div>
+    <div id="conn-status-${v.vehicle_id}" style="font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(255,255,255,.05);color:var(--c-text3)">
+      Checking connection...
+    </div>
+  </div>
+  <div style="font-family:var(--f-display);font-size:1.3rem;letter-spacing:.04em;margin-bottom:2px">${v.make} ${v.model}</div>
+  <div class="mono" style="font-size:.72rem;margin-bottom:10px">${v.vin}</div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:.72rem;color:var(--c-text3)">Health Score</span>
+    <span style="font-weight:700;color:${v.health_score>=80?'var(--c-green)':v.health_score>=60?'var(--c-amber)':'var(--c-red)'}">${v.health_score||'N/A'}</span>
+  </div>
+  <div class="hbar" style="margin-bottom:10px"><div class="hfill ${hc}" style="width:${v.health_score||0}%"></div></div>
+  <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--c-text3);margin-bottom:14px">
+    <span>${v.plate_number}</span>
+    <span>${v.fault_count||0} fault${v.fault_count!==1?'s':''}</span>
+    <span>Last scan: ${v.last_scan?fmt(v.last_scan):'Never'}</span>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:7px">
+    <div style="display:flex;gap:7px">
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showVehicleDetail('${v.vehicle_id}')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Details
+      </button>
+      <button class="btn btn-orange btn-sm" style="flex:1" onclick="go('dcp-issue')">
+        Issue DCP
+      </button>
+    </div>
+    <button class="btn btn-ghost btn-block btn-sm" id="connect-btn-${v.vehicle_id}"
+      onclick="openVehicleConnect('${v.vehicle_id}', '${v.make} ${v.model}', '${v.obd_connection_method||''}')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Connect OBD or Manufacturer
+    </button>
+  </div>
+</div>`;
       }).join('');
+      // Check and display connection status for all vehicles
+      checkVehicleConnections(vehicles);
+    }
+
+    async function checkVehicleConnections(vehicles) {
+      // After rendering cards, check each vehicle's connection method
+      // and update the status badge on each card
+      for (const v of vehicles) {
+        const el = document.getElementById(`conn-status-${v.vehicle_id}`);
+        const btn = document.getElementById(`connect-btn-${v.vehicle_id}`);
+        if (!el) continue;
+
+        const method = v.obd_connection_method;
+
+        if (method === 'manufacturer_api') {
+          el.textContent = 'Manufacturer Connected';
+          el.style.background = 'rgba(0,214,143,.1)';
+          el.style.color = 'var(--c-green)';
+          if (btn) btn.textContent = 'Manage Connection';
+        } else if (method === 'obd_hardware') {
+          el.textContent = 'OBD Dongle Active';
+          el.style.background = 'rgba(0,214,143,.1)';
+          el.style.color = 'var(--c-green)';
+          if (btn) btn.textContent = 'Manage OBD';
+        } else if (method === 'nfc_scan') {
+          el.textContent = 'NFC Active';
+          el.style.background = 'rgba(0,214,143,.1)';
+          el.style.color = 'var(--c-green)';
+        } else {
+          el.textContent = 'Not Connected';
+          el.style.background = 'rgba(255,71,87,.08)';
+          el.style.color = 'var(--c-red)';
+          // Pulse the connect button to draw attention
+          if (btn) {
+            btn.style.borderColor = 'rgba(232,131,9,.4)';
+            btn.style.color = 'var(--c-orange)';
+          }
+        }
+      }
     }
 
     // ── LINK VEHICLE ─────────────────────────────────────────────
@@ -3152,7 +3294,28 @@
         fleet_id: document.getElementById('lv-fleet-id').value || ''
       });
       btn.classList.remove('loading'); btn.disabled = false;
-      if (!r?.ok) { showAlert('link-alert', r?.d?.detail || 'Failed to link vehicle', 'err'); return; }
+      if (!r?.ok) {
+          const detail = r?.d?.detail || 'Failed to link vehicle';
+          if (r?.st === 402) {
+              // Slot limit — show upgrade prompt
+              showAlert('link-alert',
+                  detail + ' — tap Subscription in the menu to upgrade.',
+                  'err'
+              );
+              // Also highlight the subscription nav item
+              setTimeout(() => {
+                  const subNav = document.querySelector('[onclick="go(\'subscription\')"]');
+                  if (subNav) {
+                      subNav.style.outline = '2px solid var(--c-orange)';
+                      subNav.style.borderRadius = '6px';
+                      setTimeout(() => subNav.style.outline = '', 3000);
+                  }
+              }, 500);
+          } else {
+              showAlert('link-alert', detail, 'err');
+          }
+          return;
+      }
       toast('Vehicle Linked', `${r.d.vin} linked. Monitoring active.`, 'ok');
       showAlert('link-alert', `Vehicle ${r.d.vehicle_id} registered successfully.`, 'ok');
     }
@@ -3464,6 +3627,14 @@
         <div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:2px">Fuel Level</div><div style="font-weight:600">${v.fuel_level || '—'}%</div></div>
         <div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:2px">Speed</div><div style="font-weight:600">${v.speed_kmh || 0} km/h</div></div>
       </div>
+      <div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:2px">Connection</div>
+      <div style="font-size:.78rem;font-weight:600">
+        ${v.obd_connection_method
+          ? `<span style="color:var(--c-green)">${v.obd_connection_method.replace(/_/g,' ')}</span>`
+          : `<span style="color:var(--c-red)">Not connected</span>`
+        }
+      </div></div>
+      </div>
       ${v.active_faults?.length ? `<div><div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:6px">Active Faults</div><div style="display:flex;gap:4px;flex-wrap:wrap">${v.active_faults.map(f => `<span class="fc">${f}</span>`).join('')}</div></div>` : ''}
       ${scan ? `<div style="border-top:1px solid var(--c-border);padding-top:12px">
         <div style="font-size:.62rem;color:var(--c-text3);text-transform:uppercase;margin-bottom:8px">Latest OBD Scan — ${fmt(scan.scanned_at)}</div>
@@ -3474,6 +3645,10 @@
           <div><div style="font-size:.62rem;color:var(--c-text3)">OBD2 Status</div><span class="badge ${scan.obd2_status === 'ok' ? 'b-green' : 'b-red'}">${scan.obd2_status || '—'}</span></div>
         </div>
       </div>`: ''}
+    <button class="btn btn-ghost btn-block btn-sm" style="margin-top:8px"
+      onclick="closeModal('vehicle-modal');openVehicleConnect('${v.vehicle_id}','${v.make} ${v.model}','${v.obd_connection_method||''}')">
+      ${v.obd_connection_method ? 'Manage Connection' : 'Connect Vehicle'}
+    </button>
     </div>`;
       openModal('vehicle-modal');
     }
@@ -3747,10 +3922,6 @@
       }
       const pricing = pr?.d?.pricing;
       if (pricing) {
-        const plans = [
-          { key: 'private', name: 'PRIVATE OWNER', data: pricing.private_owner },
-          { key: 'fleet', name: 'FLEET MANAGER', data: pricing.fleet, featured: true },
-          { key: 'reseller', name: 'DEALER RESELLER', data: pricing.reseller }
         const allPlans = [
           { key: 'private', name: 'PRIVATE OWNER', data: pricing.private_owner, roles: ['private_owner', 'admin'] },
           { key: 'fleet', name: 'FLEET MANAGER', data: pricing.fleet, featured: true, roles: ['fleet_owner', 'admin'] },
@@ -3758,7 +3929,6 @@
         ];
         const availablePlans = allPlans.filter(p => p.roles.includes(USER?.role));
         document.getElementById('sub-plans').innerHTML = `
-      <div class="plan-grid">${plans.map(pl => !pl.data ? '' : `
       <div class="plan-grid">${availablePlans.map(pl => !pl.data ? '' : `
         <div class="plan-card ${pl.featured ? 'featured' : ''}">
           ${pl.featured ? '<div class="plan-top-badge">RECOMMENDED</div>' : ''}
@@ -3774,8 +3944,6 @@
       const r = await api('POST', '/subscription/initiate', { plan, vehicle_count: 1 });
       if (!r?.ok) { toast('Error', r?.d?.detail || 'Failed', 'err'); return; }
       if (r.d.payment_url) {
-        toast('Redirecting to Flutterwave', 'Complete payment to activate', 'info', 2000);
-        setTimeout(() => window.open(r.d.payment_url, '_blank'), 800);
         toast('Redirecting to Payment Gateway', 'Complete payment to activate', 'info', 2000);
         // Using location.href bypasses browser popup blockers
         setTimeout(() => window.location.href = r.d.payment_url, 800);

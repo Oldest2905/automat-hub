@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, and_
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
+from pydantic import BaseModel
 import csv
 import io
 
@@ -31,6 +32,29 @@ from backend.models.workshop import RepairJob
 from backend.services.scan_service import process_hourly_scan
 
 router = APIRouter(prefix="/fleet", tags=["Fleet Management"])
+
+
+class OBDScanPayload(BaseModel):
+    vehicle_id: str
+    vin: Optional[str] = None
+    adapter_id: Optional[str] = None
+    adapter_name: Optional[str] = None
+    source: Optional[str] = "obd_hardware"
+    pids: Optional[dict] = {}
+    dtcs: Optional[List[str]] = []
+    fault_codes: Optional[List[str]] = []
+    coolant_temp_c: Optional[float] = None
+    engine_rpm: Optional[float] = None
+    speed_kmh: Optional[float] = None
+    fuel_level_pct: Optional[float] = None
+    battery_voltage: Optional[float] = None
+    oil_temp_c: Optional[float] = None
+    odometer_km: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    timestamp: Optional[str] = None
+    location: Optional[dict] = None
+    raw: Optional[dict] = None
 
 
 # ── FLEET MANAGEMENT ─────────────────────────────────────────
@@ -78,15 +102,65 @@ async def add_vehicle_to_fleet(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """Register a vehicle for tracking."""
+    """
+    Register a vehicle for tracking.
+    Enforces vehicle slot limits based on the user's subscription plan.
+    """
+    from sqlalchemy import func, select as sa_select
+    from backend.models.user import User
     import uuid as _uuid
+
+    user_id = current_user["user_id"]
+
+    # ── SLOT CHECK — count how many vehicles this user already has ──
+    vehicle_count_result = await db.execute(
+        sa_select(func.count(TrackedVehicle.id)).where(
+            TrackedVehicle.owner_id == user_id,
+            TrackedVehicle.status != "inactive"  # Don't count removed vehicles
+        )
+    )
+    current_vehicle_count = vehicle_count_result.scalar() or 0
+
+    # Fetch the user's allowed vehicle slots from their subscription
+    user_result = await db.execute(
+        sa_select(User).where(User.user_id == user_id)
+    )
+    user = user_result.scalar_one_or_none()
+    allowed_slots = getattr(user, "vehicle_slots", 1) if user else 1
+
+    if current_vehicle_count >= allowed_slots:
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                f"Vehicle slot limit reached. "
+                f"Your current plan allows {allowed_slots} vehicle"
+                f"{'s' if allowed_slots != 1 else ''}. "
+                f"You have {current_vehicle_count} registered. "
+                f"Upgrade your subscription at automatcorp.org.ng to add more vehicles."
+            )
+        )
+    # ── END SLOT CHECK ───────────────────────────────────────────
+
+    # Check this VIN is not already registered to this user
+    existing_result = await db.execute(
+        sa_select(TrackedVehicle).where(
+            TrackedVehicle.vin == vin.upper(),
+            TrackedVehicle.owner_id == user_id
+        )
+    )
+    existing = existing_result.scalar_one_or_none()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Vehicle with VIN {vin.upper()} is already registered to your account."
+        )
 
     vehicle_id = f"VEH-{str(_uuid.uuid4())[:8].upper()}"
 
     vehicle = TrackedVehicle(
         vehicle_id=vehicle_id,
         vin=vin.upper(),
-        owner_id=current_user["user_id"],
+        owner_id=user_id,
         fleet_id=fleet_id,
         make=make,
         model=model,
@@ -103,7 +177,9 @@ async def add_vehicle_to_fleet(
         "success": True,
         "vehicle_id": vehicle_id,
         "vin": vin.upper(),
-        "message": "Vehicle registered for tracking"
+        "slots_used": current_vehicle_count + 1,
+        "slots_allowed": allowed_slots,
+        "message": f"Vehicle registered for tracking. Using {current_vehicle_count + 1} of {allowed_slots} slot{'s' if allowed_slots != 1 else ''}."
     }
 
 
@@ -464,17 +540,45 @@ async def export_fleet_report(
 
 @router.post("/scan/submit", response_model=dict)
 async def submit_scan(
-    vehicle_id: str,
-    scan_data: dict,
+    payload: OBDScanPayload,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Submit OBD scan data for a vehicle.
-    Called by mobile app every hour.
-    Also called by manufacturer API integration.
+    Receive OBD scan data pushed from:
+    - Web browser using Web Bluetooth API (Chrome/Edge with ELM327 dongle)
+    - Mobile app (React Native) with Bluetooth OBD dongle
+    - Manufacturer API integration (pulled server-side every hour)
+    Normalises all formats into a standard scan record.
     """
-    result = await process_hourly_scan(vehicle_id, scan_data, db)
+    scan_data = payload.dict()
+
+    # Merge PID hex codes into named fields
+    pids = scan_data.get("pids") or {}
+    if pids:
+        scan_data["coolant_temp_c"]  = scan_data.get("coolant_temp_c")  or pids.get("0x05")
+        scan_data["engine_rpm"]      = scan_data.get("engine_rpm")      or pids.get("0x0C")
+        scan_data["speed_kmh"]       = scan_data.get("speed_kmh")       or pids.get("0x0D")
+        scan_data["fuel_level_pct"]  = scan_data.get("fuel_level_pct")  or pids.get("0x2F")
+        scan_data["battery_voltage"] = scan_data.get("battery_voltage") or pids.get("0x42")
+        scan_data["oil_temp_c"]      = scan_data.get("oil_temp_c")      or pids.get("0x5C")
+        scan_data["odometer_km"]     = scan_data.get("odometer_km")     or pids.get("0xA6")
+
+    # Merge location dict into lat/lng
+    loc = scan_data.get("location") or {}
+    if loc:
+        scan_data["latitude"]  = scan_data.get("latitude")  or loc.get("lat") or loc.get("latitude")
+        scan_data["longitude"] = scan_data.get("longitude") or loc.get("lng") or loc.get("longitude")
+
+    # Merge dtcs and fault_codes into one deduplicated list
+    all_faults = list(set(
+        (scan_data.get("dtcs") or []) +
+        (scan_data.get("fault_codes") or [])
+    ))
+    scan_data["fault_codes"] = all_faults
+
+    from backend.services.manufacturer_service import process_hourly_scan
+    result = await process_hourly_scan(payload.vehicle_id, scan_data, db)
 
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
