@@ -34,23 +34,23 @@ async def issue_dcp_endpoint(
     """
     Issue a new DCP.
     
-    - Requires valid JWT with role of inspector or admin ONLY
-    - Private owners, fleet owners, resellers, and mechanics
+    - Requires valid JWT with allowed roles
+    - Private owners and fleet owners
       cannot issue DCPs — this protects the integrity of the registry
     - Generates SHA-256 hash from inspection data
     - Writes hash to append-only ledger
     - Generates QR code
     - Returns complete DCP record
     """
-    # ── ROLE GATE — only inspector or admin can issue a DCP ──────
-    allowed_roles = {"inspector", "admin"}
+    # ── ROLE GATE — allowed roles can issue a DCP ──────
+    allowed_roles = {"inspector", "admin", "reseller", "mechanic"}
     user_role = current_user.get("role", "")
 
     if user_role not in allowed_roles:
         raise HTTPException(
             status_code=403,
             detail=(
-                f"Access denied. DCP issuance requires inspector or admin role. "
+                f"Access denied. DCP issuance requires inspector, admin, reseller, or mechanic role. "
                 f"Your role is '{user_role}'. "
                 f"Contact the Automat Hub operations team to request inspector access."
             )
