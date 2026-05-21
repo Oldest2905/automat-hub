@@ -403,7 +403,10 @@ body { font-family: var(--fb); background: var(--bg); color: var(--text); min-he
               <div class="bt-scanner" id="bt-list" style="margin-top:12px">
                 <div class="bt-header">
                   Detected Devices
+                <div>
                   <button class="btn btn-ghost btn-sm" onclick="scanBluetooth()">Scan</button>
+                  <button class="btn btn-ghost btn-sm" onclick="simulateBTDevices()" style="margin-left:4px" title="Use Demo Mode">Demo</button>
+                </div>
                 </div>
                 <div id="bt-devices">
                   <div style="padding:14px;text-align:center;font-size:.75rem;color:var(--text3)">Click Scan to find OBD adapters</div>
@@ -1088,6 +1091,13 @@ async function registerAdapter() {
   btn.innerHTML = 'Registering...'; btn.disabled = true;
   const r = await api('POST', `/manufacturer/connect-obd?vehicle_id=${vid}&adapter_id=${PAIRED_ADAPTER.id}`);
   if(r?.ok) {
+    if (OBD_DATA) {
+      // Instantly submit the simulated scan data so the dashboard updates immediately
+      await api('POST', '/fleet/scan/submit', {
+        vehicle_id: vid,
+        ...OBD_DATA
+      });
+    }
     btn.textContent = '✓ Registered — Monitoring Active';
     btn.className = 'btn btn-green btn-block';
     setTimeout(() => window.location.href = '/#my-vehicles', 2000);
