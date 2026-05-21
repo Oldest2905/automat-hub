@@ -238,6 +238,39 @@ async def connect_obd_adapter(
         "scan_interval_hours": 1
     }
 
+# ── CONNECT VIA MANUAL ENTRY ──────────────────────────────────
+
+@router.post("/connect-manual", response_model=dict)
+async def connect_manual(
+    vehicle_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Configure a vehicle for manual data entry.
+    Used when the owner does not have an OBD adapter.
+    """
+    result = await db.execute(
+        select(TrackedVehicle).where(
+            TrackedVehicle.vehicle_id == vehicle_id,
+            TrackedVehicle.owner_id == current_user["user_id"]
+        )
+    )
+    vehicle = result.scalar_one_or_none()
+
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    vehicle.obd_connection_method = "manual"
+    vehicle.obd_adapter_id = None
+    vehicle.manufacturer_api_token = None
+
+    return {
+        "success": True,
+        "vehicle_id": vehicle_id,
+        "connection_method": "manual",
+        "message": "Manual tracking enabled."
+    }
 
 # ── DISCONNECT ────────────────────────────────────────────────
 

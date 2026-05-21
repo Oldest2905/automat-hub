@@ -370,6 +370,10 @@ body { font-family: var(--fb); background: var(--bg); color: var(--text); min-he
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       Manufacturer API
     </div>
+    <div class="method-btn" onclick="switchMethod('manual')" id="btn-manual">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Manual Entry
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════
@@ -626,6 +630,32 @@ body { font-family: var(--fb); background: var(--bg); color: var(--text); min-he
 
   </div><!-- end panel-mfr -->
 
+  <!-- ══════════════════════════════════════════════════
+       MANUAL ENTRY PANEL
+  ══════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-manual">
+    <div class="card" style="max-width: 600px; margin: 0 auto; background: var(--s1); padding: 24px; border-radius: 14px; border: 1px solid var(--border);">
+      <div class="card-hdr" style="margin-bottom: 20px;">
+        <div>
+          <div class="card-title" style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:4px">Manual Data Entry</div>
+          <div class="card-sub" style="font-size:.8rem;color:var(--text2)">Enable manual tracking for vehicles without an OBD-II adapter.</div>
+        </div>
+      </div>
+
+      <div class="step-item active" style="margin-bottom: 24px; display:block;">
+        <div class="step-title" style="font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:6px">Select Vehicle</div>
+        <div class="step-desc" style="font-size:.78rem;color:var(--text2);margin-bottom:10px">Choose the vehicle you want to configure for manual tracking. You will need to manually enter your odometer and status periodically.</div>
+        <select id="manual-vehicle-select" style="background:rgba(255,255,255,.04);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;color:var(--text);width:100%;font-family:var(--fb);font-size:.82rem;outline:none;">
+          <option value="">Loading your vehicles...</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="manual-register-btn" onclick="registerManual()">
+        Enable Manual Tracking
+      </button>
+    </div>
+  </div><!-- end panel-manual -->
+
 </div><!-- end shell -->
 
 <script>
@@ -735,9 +765,12 @@ async function api(method, path, body=null, auth=true) {
 function switchMethod(m) {
   document.getElementById('panel-obd').classList.toggle('active', m === 'obd');
   document.getElementById('panel-mfr').classList.toggle('active', m === 'mfr');
+  document.getElementById('panel-manual').classList.toggle('active', m === 'manual');
   document.getElementById('btn-obd').classList.toggle('active', m === 'obd');
   document.getElementById('btn-mfr').classList.toggle('active', m === 'mfr');
+  document.getElementById('btn-manual').classList.toggle('active', m === 'manual');
   if (m === 'mfr') loadManufacturers();
+  if (m === 'manual') loadManualVehicles();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -891,6 +924,34 @@ async function simulateOBDRead() {
   renderFaultCodes(demoData.fault_codes);
 }
 
+// Maps the raw JSON data to the visual dashboard elements
+function updateAllPIDs(data) {
+  if (data.coolant_temp_c !== undefined && data.coolant_temp_c !== null) updatePIDDisplay('coolant_temp', data.coolant_temp_c, '°C');
+  if (data.engine_rpm !== undefined && data.engine_rpm !== null) updatePIDDisplay('engine_rpm', data.engine_rpm, 'RPM');
+  if (data.battery_voltage !== undefined && data.battery_voltage !== null) updatePIDDisplay('battery_voltage', data.battery_voltage, 'V');
+  if (data.fuel_level_pct !== undefined && data.fuel_level_pct !== null) updatePIDDisplay('fuel_level', data.fuel_level_pct, '%');
+  if (data.oil_temp_c !== undefined && data.oil_temp_c !== null) updatePIDDisplay('oil_temp', data.oil_temp_c, '°C');
+  if (data.speed_kmh !== undefined && data.speed_kmh !== null) updatePIDDisplay('speed', data.speed_kmh, 'km/h');
+  if (data.odometer_km !== undefined && data.odometer_km !== null) updatePIDDisplay('odometer', data.odometer_km, 'km');
+  updatePIDDisplay('status', 'OK', '');
+}
+
+// Updates a single specific dashboard cell
+function updatePIDDisplay(key, val, unit) {
+  const map = {
+    'coolant_temp': 'pid-coolant', 'engine_rpm': 'pid-rpm', 'battery_voltage': 'pid-battery',
+    'fuel_level': 'pid-fuel', 'oil_temp': 'pid-oil', 'speed': 'pid-speed',
+    'odometer': 'pid-odo', 'status': 'pid-status'
+  };
+  const elId = map[key];
+  if (!elId) return;
+  const el = document.getElementById(elId);
+  if (el) {
+    el.innerHTML = val + (unit ? ` <span class="pid-unit">${unit}</span>` : '');
+    el.className = 'pid-val ok'; // Turns the text green to show successful read
+  }
+}
+
 function renderFaultCodes(codes) {
   const DTC_DESC = {
     'P0300': 'Random/multiple cylinder misfire',
@@ -1036,7 +1097,36 @@ async function registerAdapter() {
   }
 }
 
+async function loadManualVehicles() {
+  const r = await api('GET', '/fleet/dashboard');
+  const sel = document.getElementById('manual-vehicle-select');
+  if (r?.ok && r.d.vehicles?.length) {
+    sel.innerHTML = '<option value="">Select your vehicle...</option>' + r.d.vehicles.map(v => `<option value="${v.vehicle_id}">${v.make} ${v.model} (${v.plate_number})</option>`).join('');
+    if (VEHICLE_ID) sel.value = VEHICLE_ID;
+  } else {
+    sel.innerHTML = '<option value="">No vehicles found. Add one first.</option>';
+  }
+}
+
+async function registerManual() {
+  const vid = document.getElementById('manual-vehicle-select').value;
+  if(!vid) { toast('Error', 'Select a vehicle', 'err'); return; }
+  const btn = document.getElementById('manual-register-btn');
+  btn.innerHTML = '<div class="spin" style="display:block"></div> Enabling...'; btn.disabled = true;
+  const r = await api('POST', `/manufacturer/connect-manual?vehicle_id=${vid}`);
+  if(r?.ok) {
+    btn.textContent = '✓ Manual Tracking Enabled';
+    btn.className = 'btn btn-green btn-block';
+    setTimeout(() => window.location.href = '/#my-vehicles', 2000);
+  } else {
+    btn.textContent = 'Enable Manual Tracking'; btn.disabled = false;
+    toast('Error', r?.d?.detail || 'Failed', 'err');
+  }
+}
+
 loadOBDVehicles();
+const initM = new URLSearchParams(location.search).get('method');
+if (initM) switchMethod(initM);
 </script>
 </body>
 </html>
