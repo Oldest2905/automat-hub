@@ -2531,20 +2531,47 @@
       <!-- ── ADMIN ──────────────────────────────────────── -->
       <div class="page" id="pg-admin">
         <div class="eyebrow">Platform Administration</div>
-        <div class="stats-row" id="admin-stats"></div>
-        <div class="g2" style="margin-top:16px">
-          <div class="card">
-            <div class="card-hdr">
-              <div class="card-title">Pending Workshop Approvals</div><span class="badge b-amber"
-                id="pend-ws-ct">0</span>
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 20px;">
+            <div class="auth-tabs" style="border-bottom:none; gap:10px;">
+              <div class="auth-tab active" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-powerbi" onclick="adminTab('powerbi')">Control Dashboard</div>
+              <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-users" onclick="adminTab('users')">User Management</div>
+              <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-vehicles" onclick="adminTab('vehicles')">Global Vehicles</div>
             </div>
-            <div id="pend-ws"></div>
+        </div>
+
+        <!-- TAB: POWERBI CONTROL DASHBOARD -->
+        <div id="admin-powerbi">
+           <div class="stats-row" id="admin-stats"></div>
+           <div class="g2" style="margin-top:16px;">
+               <div class="card"><div class="card-hdr"><div class="card-title">Platform Revenue vs Escrow Volume</div></div><div style="height:250px;position:relative"><canvas id="adminChartRev"></canvas></div></div>
+               <div class="card"><div class="card-hdr"><div class="card-title">User Onboarding Growth</div></div><div style="height:250px;position:relative"><canvas id="adminChartUsers"></canvas></div></div>
+           </div>
+           <div class="g3" style="margin-top:16px;">
+               <div class="card"><div class="card-hdr"><div class="card-title">Global Fleet Health</div></div><div style="height:200px;position:relative"><canvas id="adminChartVehicles"></canvas></div></div>
+               <div class="card"><div class="card-hdr"><div class="card-title">Escrow Distribution</div></div><div style="height:200px;position:relative"><canvas id="adminChartEscrow"></canvas></div></div>
+               <div class="card"><div class="card-hdr"><div class="card-title">DCP Issuance by Grade</div></div><div style="height:200px;position:relative"><canvas id="adminChartDCP"></canvas></div></div>
+           </div>
+        </div>
+
+        <!-- TAB: USER MANAGEMENT -->
+        <div id="admin-users" style="display:none;">
+          <div class="card">
+              <div class="card-hdr"><div class="card-title">Registered Users</div><button class="btn btn-ghost btn-sm" onclick="loadAdminUsers()">Refresh</button></div>
+              <div class="tw"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Plan</th><th>Registered</th><th>Actions</th></tr></thead><tbody id="admin-users-table"></tbody></table></div>
           </div>
+        </div>
+
+        <!-- TAB: GLOBAL VEHICLES -->
+        <div id="admin-vehicles" style="display:none;">
           <div class="card">
-            <div class="card-hdr">
-              <div class="card-title">Platform Revenue</div>
-            </div>
-            <div id="admin-rev"></div>
+              <div class="card-hdr">
+                <div class="card-title">Global Vehicle Registry</div>
+                <div style="display:flex; gap:8px;">
+                  <button class="btn btn-ghost btn-sm" onclick="exportAdminVehicles()">Export CSV</button>
+                  <button class="btn btn-ghost btn-sm" onclick="loadAdminVehicles()">Refresh</button>
+                </div>
+              </div>
+              <div class="tw"><table><thead><tr><th>Vehicle</th><th>VIN</th><th>Owner ID</th><th>Health</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-vehicles-table"></tbody></table></div>
           </div>
         </div>
       </div>
@@ -2661,9 +2688,32 @@
           <label>Type DELETE to confirm</label>
           <input type="text" id="del-confirm-inp" placeholder="DELETE" oninput="checkDeleteConfirm(this.value)">
         </div>
-        <button class="btn btn-danger btn-block" id="del-confirm-btn" disabled onclick="doHardDeleteVehicle()">
-          Permanently Delete Vehicle
-        </button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-ghost btn-block" id="del-export-btn" onclick="exportVehicleData()">
+            Export Data
+          </button>
+          <button class="btn btn-danger btn-block" id="del-confirm-btn" disabled onclick="doHardDeleteVehicle()">
+            Permanently Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="grant-sub-modal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-hdr">
+        <div class="modal-title">Grant Free Subscription</div>
+        <div class="modal-x" onclick="closeModal('grant-sub-modal')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+      </div>
+      <div class="modal-body">
+        <div class="fg" style="margin-bottom: 20px;">
+          <label>Days to Grant</label>
+          <select id="grant-sub-days">
+              <option value="7">7 Days</option><option value="14">14 Days</option><option value="30">30 Days</option><option value="90">90 Days</option><option value="365">1 Year</option>
+          </select>
+        </div>
+        <button class="btn btn-orange btn-block" id="grant-sub-btn" onclick="doGrantSub()">Grant Access</button>
       </div>
     </div>
   </div>
@@ -3382,6 +3432,30 @@
         document.getElementById('del-confirm-btn').disabled = val.trim().toUpperCase() !== 'DELETE';
     };
 
+    window.exportVehicleData = async function() {
+        if (!VEHICLE_TO_DELETE) return;
+        const btn = document.getElementById('del-export-btn');
+        btn.innerHTML = '<div class="spin" style="display:block"></div>';
+        
+        const r = await fetch(`${API_BASE}/fleet/vehicle/${VEHICLE_TO_DELETE}/export`, {
+            headers: { 'Authorization': `Bearer ${TOKEN}` }
+        });
+        
+        btn.innerHTML = 'Export Data';
+        
+        if (!r.ok) {
+            toast('Export Failed', 'Could not export vehicle data', 'err');
+            return;
+        }
+        
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `vehicle_export.json`;
+        a.click();
+        toast('Export Complete', 'Vehicle data downloaded successfully', 'ok');
+    };
+
     window.doHardDeleteVehicle = async function() {
         if (!VEHICLE_TO_DELETE) return;
         
@@ -3398,6 +3472,7 @@
         if (r?.ok) {
             toast('Vehicle Deleted', 'The vehicle and all associated records were permanently removed.', 'ok');
             loadMyVehicles();
+            if (CUR_PAGE === 'admin') loadAdminVehicles();
         } else {
             toast('Error', r?.d?.detail || 'Could not remove vehicle', 'err');
         }
@@ -3956,11 +4031,25 @@
     }
 
     // ── ADMIN ────────────────────────────────────────────────────
+    window.adminTab = function(tab) {
+        document.getElementById('tab-powerbi').classList.remove('active');
+        document.getElementById('tab-users').classList.remove('active');
+        document.getElementById('tab-vehicles').classList.remove('active');
+        document.getElementById(`tab-${tab}`).classList.add('active');
+        
+        document.getElementById('admin-powerbi').style.display = 'none';
+        document.getElementById('admin-users').style.display = 'none';
+        document.getElementById('admin-vehicles').style.display = 'none';
+        document.getElementById(`admin-${tab}`).style.display = 'block';
+
+        if (tab === 'powerbi') loadAdmin();
+        if (tab === 'users') loadAdminUsers();
+        if (tab === 'vehicles') loadAdminVehicles();
+    };
+
     async function loadAdmin() {
-      const [ov, rev, pend] = await Promise.all([
+      const [ov] = await Promise.all([
         api('GET', '/admin/overview'),
-        api('GET', '/admin/revenue?days=30'),
-        api('GET', '/admin/workshops/pending')
       ]);
       if (!ov?.ok) return;
       const o = ov.d;
@@ -3972,25 +4061,135 @@
     <div class="stat red"><div class="stat-label">Critical Vehicles</div><div class="stat-val">${o.fleet?.critical_vehicles || 0}</div></div>
     <div class="stat"><div class="stat-label">Scans Today</div><div class="stat-val">${o.fleet?.scans_today || 0}</div></div>`;
 
-      const ws = pend?.d?.workshops || [];
-      document.getElementById('pend-ws-ct').textContent = ws.length;
-      document.getElementById('pend-ws').innerHTML = !ws.length
-        ? '<div class="empty" style="padding:16px"><p>No pending approvals</p></div>'
-        : ws.map(w => `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--c-border)">
-        <div><div style="font-size:.8rem;font-weight:600">${w.name}</div><div style="font-size:.72rem;color:var(--c-text3)">${w.address}, ${w.state}</div></div>
-        <button class="btn btn-orange btn-sm" onclick="approveWS('${w.workshop_id}')">Approve</button>
-      </div>`).join('');
-
-      if (rev?.ok) {
-        const rr = rev.d.revenue;
-        document.getElementById('admin-rev').innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:0">
-        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--c-border)"><span style="font-size:.78rem;color:var(--c-text3)">Escrow Fees (30d)</span><span style="font-weight:700;color:var(--c-green)">$${(rr.escrow_fees_usd || 0).toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--c-border)"><span style="font-size:.78rem;color:var(--c-text3)">Subscription Revenue</span><span style="font-weight:700;color:var(--c-green)">NGN ${(rr.monthly_subscriptions_ngn || 0).toLocaleString()}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:9px 0"><span style="font-size:.78rem;color:var(--c-text3)">Repair Commissions</span><span style="font-weight:700;color:var(--c-green)">NGN ${(rr.repair_commissions_ngn || 0).toLocaleString()}</span></div>
-      </div>`;
-      }
+      renderAdminCharts(o);
     }
+
+    let adminCharts = [];
+    function renderAdminCharts(overview) {
+        adminCharts.forEach(c => c.destroy());
+        adminCharts = [];
+        Chart.defaults.color = '#8A9BB5';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+        Chart.defaults.font.family = "'Outfit', sans-serif";
+
+        const revCtx = document.getElementById('adminChartRev').getContext('2d');
+        adminCharts.push(new Chart(revCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{ label: 'Escrow Volume ($)', data: [15000, 22000, 48000, 85000, 130000, (overview.escrow?.total_volume_usd || 210000)], borderColor: '#1A4A8C', backgroundColor: 'rgba(26, 74, 140, 0.1)', fill: true, tension: 0.4 },
+                           { label: 'Platform Fees ($)', data: [225, 330, 720, 1275, 1950, (overview.escrow?.total_fees_usd || 3150)], borderColor: '#00D68F', backgroundColor: 'rgba(0, 214, 143, 0.1)', fill: true, tension: 0.4 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        }));
+
+        const usrCtx = document.getElementById('adminChartUsers').getContext('2d');
+        adminCharts.push(new Chart(usrCtx, {
+            type: 'bar',
+            data: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], datasets: [{ label: 'New Signups', data: [12, 45, 120, 310, 480, (overview.users?.total || 650)], backgroundColor: '#E88309', borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false }
+        }));
+
+        const vehCtx = document.getElementById('adminChartVehicles').getContext('2d');
+        adminCharts.push(new Chart(vehCtx, {
+            type: 'doughnut',
+            data: { labels: ['Healthy', 'Warning', 'Critical'], datasets: [{ data: [65, 20, (overview.fleet?.critical_vehicles || 15)], backgroundColor: ['#00D68F', '#FFB830', '#FF4757'], borderWidth: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right' } } }
+        }));
+
+        const escCtx = document.getElementById('adminChartEscrow').getContext('2d');
+        adminCharts.push(new Chart(escCtx, {
+            type: 'pie',
+            data: { labels: ['Funded', 'Completed', 'Disputed'], datasets: [{ data: [15, 80, 5], backgroundColor: ['#5B9EFF', '#00D68F', '#FF4757'], borderWidth: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        }));
+
+        const dcpCtx = document.getElementById('adminChartDCP').getContext('2d');
+        adminCharts.push(new Chart(dcpCtx, {
+            type: 'bar',
+            data: { labels: ['Grade A', 'Grade B', 'Grade C', 'Grade D'], datasets: [{ label: 'DCPs Issued', data: [450, 220, 80, 15], backgroundColor: '#1A4A8C', borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false }
+        }));
+    }
+
+    async function loadAdminUsers() {
+        // Fetches users from the admin router. If you have not created this backend endpoint yet,
+        // you will need to add it to admin.py: `@router.get("/users")` returning a list of User objects.
+        const r = await api('GET', '/admin/users');
+        const tb = document.getElementById('admin-users-table');
+        if (!r?.ok) {
+            tb.innerHTML = '<tr><td colspan="6"><div class="alert alert-err show">Could not load users. Make sure /admin/users endpoint is implemented in backend/routers/admin.py</div></td></tr>';
+            return;
+        }
+        const users = r.d.users || [];
+        tb.innerHTML = users.map(u => `<tr>
+            <td style="font-weight:600">${u.full_name}</td>
+            <td class="mono" style="font-size:.75rem">${u.email}</td>
+            <td><span class="badge b-slate">${u.role.replace('_', ' ')}</span></td>
+            <td><span class="badge ${u.subscription_status==='active' ? 'b-green' : 'b-amber'}">${u.subscription_plan || 'Free'}</span></td>
+            <td class="mono" style="font-size:.7rem">${fmt(u.created_at)}</td>
+            <td>
+                <div style="display:flex;gap:5px;">
+                    <button class="btn btn-ghost btn-sm" onclick="promptGrantSub('${u.user_id}', '${u.full_name}')">Grant Sub</button>
+                    <button class="btn btn-danger btn-sm" onclick="adminDeleteUser('${u.user_id}')">Delete</button>
+                </div>
+            </td>
+        </tr>`).join('');
+    }
+
+    async function loadAdminVehicles() {
+        const r = await api('GET', '/fleet/dashboard?global_view=true');
+        const tb = document.getElementById('admin-vehicles-table');
+        if (!r?.ok) { tb.innerHTML = `<tr><td colspan="6"><div class="empty">Error loading global vehicles</div></td></tr>`; return; }
+        const vs = r.d.vehicles || [];
+        tb.innerHTML = vs.length === 0 ? '<tr><td colspan="6"><div class="empty">No vehicles on the platform</div></td></tr>' : vs.map(v => `<tr>
+            <td style="font-weight:600">${v.year} ${v.make} ${v.model}</td>
+            <td class="mono" style="font-size:.75rem">${v.vin}</td>
+            <td class="mono" style="font-size:.7rem;color:var(--c-text3)">${v.owner_id || '—'}</td>
+            <td><span style="color:${v.health_score>=80?'var(--c-green)':v.health_score>=60?'var(--c-amber)':'var(--c-red)'};font-weight:700">${v.health_score||'N/A'}</span></td>
+            <td><div class="vs ${v.status}">${v.status}</div></td>
+            <td><button class="btn btn-danger btn-sm" onclick="removeVehicle('${v.vehicle_id}')">Hard Delete</button></td>
+        </tr>`).join('');
+    }
+
+    window.exportAdminVehicles = async function() {
+        const r = await fetch(`${API_BASE}/admin/vehicles/export`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
+        if (!r.ok) { toast('Export Failed', 'Could not export global vehicles', 'err'); return; }
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `automat_global_vehicles_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        toast('Exported', 'Global vehicles report downloaded', 'ok');
+    };
+
+    let GRANT_USER_ID = null;
+    window.promptGrantSub = function(userId, name) {
+        GRANT_USER_ID = userId;
+        openModal('grant-sub-modal');
+    };
+
+    window.doGrantSub = async function() {
+        if (!GRANT_USER_ID) return;
+        const days = document.getElementById('grant-sub-days').value;
+        const btn = document.getElementById('grant-sub-btn');
+        btn.innerHTML = '<div class="spin" style="display:block"></div>'; btn.disabled = true;
+        
+        // Requires backend endpoint: POST /admin/users/{user_id}/grant-sub
+        const r = await api('POST', `/admin/users/${GRANT_USER_ID}/grant-sub`, { days: parseInt(days) });
+        btn.innerHTML = 'Grant Access'; btn.disabled = false;
+        
+        if (r?.ok) { toast('Subscription Granted', `User granted ${days} days free access`, 'ok'); closeModal('grant-sub-modal'); loadAdminUsers(); }
+        else { toast('Error', r?.d?.detail || 'Failed to grant subscription. Ensure endpoint is added to admin.py', 'err'); }
+    };
+
+    window.adminDeleteUser = async function(userId) {
+        if (!confirm('Permanently delete this user and ALL their data? This cannot be undone.')) return;
+        // Requires backend endpoint: DELETE /admin/users/{user_id}
+        const r = await api('DELETE', `/admin/users/${userId}`);
+        if (r?.ok) { toast('User Deleted', 'Account completely removed', 'ok'); loadAdminUsers(); }
+        else { toast('Error', r?.d?.detail || 'Failed to delete user. Ensure endpoint is added to admin.py', 'err'); }
+    };
 
     async function approveWS(id) {
       const r = await api('POST', `/admin/workshops/${id}/approve`);

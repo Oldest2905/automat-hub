@@ -13,16 +13,21 @@ Admin can:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, and_
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+from pydantic import BaseModel
+import io
+import csv
+import uuid
 
 from backend.core.database import get_db
 from backend.core.security import get_current_user
-from backend.models.dcp import DCPRecord, VerificationLog
+from backend.models.dcp import DCPRecord, VerificationLog, DCPHashLedger, InspectionDetail
 from backend.models.escrow import EscrowDeal
-from backend.models.fleet import TrackedVehicle, HourlyScan, VehicleAlert
+from backend.models.fleet import TrackedVehicle, HourlyScan, VehicleAlert, LocationHistory, Fleet
 from backend.models.workshop import Workshop, RepairJob
 from backend.models.user import User, ResellerAPIKey, Subscription
 
@@ -194,6 +199,83 @@ async def suspend_user(
     user.is_active = False
     return {"success": True, "message": f"User {user_id} suspended. Reason: {reason}"}
 
+class GrantSubRequest(BaseModel):
+    days: int
+
+@router.post("/users/{user_id}/grant-sub", response_model=dict)
+async def grant_subscription(
+    user_id: str,
+    request: GrantSubRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin)
+):
+    """Grant free subscription access to a user for a specific number of days."""
+    result = await db.execute(select(User).where(User.user_id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    now = datetime.now(timezone.utc)
+    
+    # If currently active, extend from existing end date, otherwise from now
+    if user.subscription_end and user.subscription_status == "active" and user.subscription_end > now:
+        user.subscription_end = user.subscription_end + timedelta(days=request.days)
+    else:
+        user.subscription_start = now
+        user.subscription_end = now + timedelta(days=request.days)
+        
+    user.subscription_status = "active"
+
+    # Add a subscription record
+    sub = Subscription(
+        user_id=user_id,
+        plan=user.subscription_plan or "free",
+        vehicle_count=user.vehicle_slots or 1,
+        amount_ngn=0,
+        billing_period_start=user.subscription_start,
+        billing_period_end=user.subscription_end,
+        status="active",
+        paystack_reference=f"ADMIN-GRANT-{str(uuid.uuid4())[:8].upper()}"
+    )
+    db.add(sub)
+    await db.flush()
+
+    return {"success": True, "message": f"Granted {request.days} days subscription to user."}
+
+@router.delete("/users/{user_id}", response_model=dict)
+async def delete_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin)
+):
+    """Hard delete a user and cascade delete their fleets, vehicles, etc."""
+    result = await db.execute(select(User).where(User.user_id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    vehicles_result = await db.execute(select(TrackedVehicle).where(TrackedVehicle.owner_id == user_id))
+    vehicles = vehicles_result.scalars().all()
+    v_ids = [v.vehicle_id for v in vehicles]
+    vins = [v.vin for v in vehicles]
+    
+    if v_ids:
+        await db.execute(LocationHistory.__table__.delete().where(LocationHistory.vehicle_id.in_(v_ids)))
+        await db.execute(HourlyScan.__table__.delete().where(HourlyScan.vehicle_id.in_(v_ids)))
+        await db.execute(VehicleAlert.__table__.delete().where(VehicleAlert.vehicle_id.in_(v_ids)))
+        await db.execute(RepairJob.__table__.delete().where(RepairJob.vehicle_id.in_(v_ids)))
+    
+    await db.execute(TrackedVehicle.__table__.delete().where(TrackedVehicle.owner_id == user_id))
+    await db.execute(Fleet.__table__.delete().where(Fleet.owner_id == user_id))
+    await db.execute(ResellerAPIKey.__table__.delete().where(ResellerAPIKey.user_id == user_id))
+    await db.execute(Subscription.__table__.delete().where(Subscription.user_id == user_id))
+    
+    await db.delete(user)
+    await db.flush()
+
+    return {"success": True, "message": "User and all associated data permanently deleted."}
 
 # ── DCP MANAGEMENT ───────────────────────────────────────────
 
@@ -467,3 +549,43 @@ async def revenue_report(
             "resellers": active_resellers,
         }
     }
+
+
+# ── VEHICLE MANAGEMENT ───────────────────────────────────────
+
+@router.get("/vehicles/export", response_class=StreamingResponse)
+async def export_global_vehicles(
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin)
+):
+    """Export all global vehicles to CSV."""
+    result = await db.execute(select(TrackedVehicle).order_by(desc(TrackedVehicle.registered_at)))
+    vehicles = result.scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Vehicle ID", "VIN", "Owner ID", "Make", "Model", "Year", "Plate Number", "Status", "Health Score", "OBD Method", "Registered At"])
+    
+    for v in vehicles:
+        writer.writerow([
+            v.vehicle_id,
+            v.vin,
+            v.owner_id,
+            v.make,
+            v.model,
+            v.year,
+            v.plate_number,
+            v.status,
+            v.latest_score,
+            v.obd_connection_method,
+            v.registered_at.isoformat() if v.registered_at else ""
+        ])
+    
+    output.seek(0)
+    filename = f"automat_global_vehicles_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
