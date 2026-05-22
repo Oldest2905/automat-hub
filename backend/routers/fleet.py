@@ -12,7 +12,7 @@ Fleet Owner can:
 - Receive and manage fault alerts
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, and_
@@ -21,6 +21,7 @@ from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
 import csv
 import io
+import json
 
 from backend.core.database import get_db
 from backend.core.security import get_current_user
@@ -234,6 +235,64 @@ async def add_vehicle_to_fleet(
         "message": f"Vehicle registered for tracking. Using {current_vehicle_count + 1} of {allowed_slots} slot{'s' if allowed_slots != 1 else ''}."
     }
 
+@router.get("/vehicle/{vehicle_id}/export", response_class=Response)
+async def export_single_vehicle(
+    vehicle_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Export all data for a single vehicle before deletion."""
+    if current_user.get("role") == "admin":
+        where_clause = TrackedVehicle.vehicle_id == vehicle_id
+    else:
+        where_clause = and_(
+            TrackedVehicle.vehicle_id == vehicle_id,
+            TrackedVehicle.owner_id == current_user["user_id"]
+        )
+    result = await db.execute(select(TrackedVehicle).where(where_clause))
+    vehicle = result.scalar_one_or_none()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    scan_result = await db.execute(
+        select(HourlyScan).where(HourlyScan.vehicle_id == vehicle_id)
+        .order_by(desc(HourlyScan.scanned_at)).limit(500)
+    )
+    scans = scan_result.scalars().all()
+
+    export_data = {
+        "vehicle": {
+            "vehicle_id": vehicle.vehicle_id,
+            "vin": vehicle.vin,
+            "make": vehicle.make,
+            "model": vehicle.model,
+            "year": vehicle.year,
+            "plate_number": vehicle.plate_number,
+            "status": vehicle.status,
+            "health_score": vehicle.latest_score,
+            "obd_connection_method": vehicle.obd_connection_method,
+        },
+        "telemetry_history": [
+            {
+                "scan_id": s.scan_id,
+                "scanned_at": s.scanned_at.isoformat() if s.scanned_at else None,
+                "health_score": s.health_score,
+                "fault_codes": s.fault_codes,
+                "odometer_km": s.odometer_km,
+                "speed_kmh": s.speed_kmh,
+                "coolant_temp_c": s.coolant_temp_c,
+                "battery_voltage": s.battery_voltage
+            } for s in scans
+        ]
+    }
+    
+    json_str = json.dumps(export_data, indent=2)
+    return Response(
+        content=json_str,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=vehicle_{vehicle.vin}_export.json"}
+    )
+
 @router.post("/vehicle/{vehicle_id}/remove", response_model=dict)
 async def remove_vehicle(
     vehicle_id: str,
@@ -247,20 +306,45 @@ async def remove_vehicle(
     from backend.models.fleet import HourlyScan, VehicleAlert, LocationHistory
     from backend.models.workshop import RepairJob
 
-    result = await db.execute(
-        select(TrackedVehicle).where(
-            and_(
-                TrackedVehicle.vehicle_id == vehicle_id,
-                TrackedVehicle.owner_id == current_user["user_id"]
-            )
+    if current_user.get("role") == "admin":
+        where_clause = TrackedVehicle.vehicle_id == vehicle_id
+    else:
+        where_clause = and_(
+            TrackedVehicle.vehicle_id == vehicle_id,
+            TrackedVehicle.owner_id == current_user["user_id"]
         )
-    )
+    result = await db.execute(select(TrackedVehicle).where(where_clause))
     vehicle = result.scalar_one_or_none()
 
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
     vin = vehicle.vin
+
+    # ── ARCHIVE THE VEHICLE ──
+    try:
+        from backend.models.archive import DeletedVehicleArchive
+        archive = DeletedVehicleArchive(
+            original_vehicle_id=vehicle.vehicle_id,
+            vin=vehicle.vin,
+            owner_id=vehicle.owner_id,
+            deleted_by=current_user["user_id"],
+            vehicle_data={
+                "make": vehicle.make,
+                "model": vehicle.model,
+                "year": vehicle.year,
+                "plate_number": vehicle.plate_number
+            },
+            telemetry_snapshot={
+                "last_score": vehicle.latest_score,
+                "last_status": vehicle.status,
+                "faults": vehicle.active_fault_codes,
+                "odometer": vehicle.odometer_current
+            }
+        )
+        db.add(archive)
+    except Exception as e:
+        print(f"Skipping archive creation: {e}")
 
     # Delete related fleet records
     await db.execute(HourlyScan.__table__.delete().where(HourlyScan.vehicle_id == vehicle_id))
@@ -292,6 +376,7 @@ async def remove_vehicle(
 @router.get("/dashboard", response_model=dict)
 async def fleet_dashboard(
     fleet_id: Optional[str] = None,
+    global_view: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -300,13 +385,17 @@ async def fleet_dashboard(
     Returns overview of all vehicles with current status.
     This is the main view for fleet managers.
     """
-    query = select(TrackedVehicle).where(
-        and_(
-            TrackedVehicle.owner_id == current_user["user_id"],
-            TrackedVehicle.status != "inactive"
+    if global_view and current_user.get("role") == "admin":
+        query = select(TrackedVehicle).where(TrackedVehicle.status != "inactive")
+    else:
+        query = select(TrackedVehicle).where(
+            and_(
+                TrackedVehicle.owner_id == current_user["user_id"],
+                TrackedVehicle.status != "inactive"
+            )
         )
-    )
-    if fleet_id:
+    
+    if fleet_id and not global_view:
         query = query.where(TrackedVehicle.fleet_id == fleet_id)
 
     result = await db.execute(query)
@@ -368,14 +457,14 @@ async def vehicle_live_status(
     current_user: dict = Depends(get_current_user)
 ):
     """Live status of a single vehicle including latest scan data."""
-    result = await db.execute(
-        select(TrackedVehicle).where(
-            and_(
-                TrackedVehicle.vehicle_id == vehicle_id,
-                TrackedVehicle.owner_id == current_user["user_id"]
-            )
+    if current_user.get("role") == "admin":
+        where_clause = TrackedVehicle.vehicle_id == vehicle_id
+    else:
+        where_clause = and_(
+            TrackedVehicle.vehicle_id == vehicle_id,
+            TrackedVehicle.owner_id == current_user["user_id"]
         )
-    )
+    result = await db.execute(select(TrackedVehicle).where(where_clause))
     vehicle = result.scalar_one_or_none()
 
     if not vehicle:
