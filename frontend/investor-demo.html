@@ -120,7 +120,7 @@
                 <div class="grid-2">
                     <div class="card" style="padding:0; overflow:hidden; display:flex; flex-direction:column;">
                         <h3 style="padding:24px 24px 0;">Trust Protocol Data Nodes</h3>
-                        <div id="three-container" style="flex:1;">
+                        <div id="three-container">
                             <div class="boot-screen" id="boot-screen">
                                 <div class="boot-spinner"></div>
                                 <div id="boot-text" class="boot-text">INITIALIZING PROTOCOL...</div>
@@ -324,16 +324,67 @@
                 }
             }, 800);
             
+            // Interactive Mouse/Touch Rotation
+            let targetRotationX = 0;
+            let targetRotationY = 0;
+            let isDragging = false;
+            let prevMousePos = { x: 0, y: 0 };
+            
+            container.style.cursor = 'grab';
+            
+            const startDrag = (x, y) => {
+                isDragging = true;
+                container.style.cursor = 'grabbing';
+                prevMousePos = { x, y };
+            };
+            
+            const moveDrag = (x, y) => {
+                if (isDragging) {
+                    targetRotationY += (x - prevMousePos.x) * 0.01;
+                    targetRotationX += (y - prevMousePos.y) * 0.01;
+                    targetRotationX = Math.max(-Math.PI/3, Math.min(Math.PI/3, targetRotationX)); // Limit up/down
+                    prevMousePos = { x, y };
+                }
+            };
+            
+            const endDrag = () => { isDragging = false; container.style.cursor = 'grab'; };
+
+            container.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
+            window.addEventListener('mousemove', (e) => moveDrag(e.clientX, e.clientY));
+            window.addEventListener('mouseup', endDrag);
+            
+            container.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY), {passive: true});
+            window.addEventListener('touchmove', (e) => moveDrag(e.touches[0].clientX, e.touches[0].clientY), {passive: true});
+            window.addEventListener('touchend', endDrag);
+
             let targetScale = 0;
             function animate() {
                 requestAnimationFrame(animate);
                 particlesMesh.rotation.y += 0.002;
                 particlesMesh.rotation.x += 0.001;
-                carGroup.rotation.y += 0.005;
                 
+                // Auto-rotate if not dragging, and apply smooth interpolation
+                if (!isDragging && bootScreen.style.opacity === '0') targetRotationY += 0.005;
+                carGroup.rotation.y += (targetRotationY - carGroup.rotation.y) * 0.1;
+                carGroup.rotation.x += (targetRotationX - carGroup.rotation.x) * 0.1;
+
                 // Animate scan line up and down with pulsating opacity
-                scanLine.position.y = Math.sin(Date.now() * 0.002) * 0.7; // Move from -0.7 to 0.7
-                scanLine.material.opacity = 0.4 + (Math.sin(Date.now() * 0.002) + 1) * 0.2; // Pulsate opacity
+                const t = Date.now() * 0.002;
+                scanLine.position.y = Math.sin(t) * 0.7; // Move from -0.7 to 0.7
+                scanLine.material.opacity = 0.4 + (Math.sin(t) + 1) * 0.2; // Pulsate opacity
+                
+                // Smoothly scale up the car model once the boot screen fades out
+                if (bootScreen.style.opacity === '0' && targetScale < 0.8) {
+                    targetScale += 0.015;
+                    if (targetScale > 0.8) targetScale = 0.8;
+                    carGroup.scale.set(targetScale, targetScale, targetScale);
+                    
+                    // Fade color from blue to orange/slate
+                    const lerpFactor = targetScale / 0.8;
+                    bodyMat.color.copy(startColor).lerp(bodyTargetColor, lerpFactor);
+                    roofMat.color.copy(startColor).lerp(roofTargetColor, lerpFactor);
+                    scanLineMat.color.copy(startColor).lerp(roofTargetColor, lerpFactor);
+                }
                 renderer.render(scene, camera);
             }
             animate();
@@ -449,6 +500,45 @@
                     prog.style.width = ((currentStep + 1) / steps.length) * 100 + '%';
                     currentStep++;
                 } else {
+                    clearInterval(interval);
+                    showToast(successMessage);
+                    txt.textContent = "> " + successMessage;
+                    txt.style.color = '#fff';
+                    btn.textContent = "Action Completed";
+                    btn.style.background = "var(--green)";
+                }
+            }, stepTime);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // --- LIVE TRACKING SIMULATION ---
+        setInterval(() => {
+            const dot = document.getElementById('gps-dot');
+            if(!dot) return;
+            const currentLeft = parseFloat(dot.style.left || 50);
+            const currentTop = parseFloat(dot.style.top || 50);
+            
+            // Move randomly by +/- 5%
+            dot.style.left = Math.max(10, Math.min(90, currentLeft + (Math.random() - 0.5) * 10)) + '%';
+            dot.style.top = Math.max(10, Math.min(90, currentTop + (Math.random() - 0.5) * 10)) + '%';
+            
+            document.getElementById('gps-speed').textContent = Math.floor(Math.random() * 20 + 40);
+            document.getElementById('gps-coords').textContent = `LAT: ${(9.07 + Math.random()*0.01).toFixed(4)}, LNG: ${(7.39 + Math.random()*0.01).toFixed(4)}`;
+        }, 2000);
+
+        // Init
+        initThreeJS();
+        initCharts();
+        switchRole(); // Setup initial view based on dropdown
+    </script>
+</body>
+</html>         } else {
                     clearInterval(interval);
                     showToast(successMessage);
                     txt.textContent = "> " + successMessage;
