@@ -190,6 +190,9 @@ async def suspend_user(
     admin: dict = Depends(require_admin)
 ):
     """Suspend a user account."""
+    if user_id == admin["user_id"]:
+        raise HTTPException(status_code=400, detail="You cannot suspend your own admin account.")
+
     result = await db.execute(select(User).where(User.user_id == user_id))
     user = result.scalar_one_or_none()
 
@@ -250,6 +253,9 @@ async def delete_user(
     admin: dict = Depends(require_admin)
 ):
     """Hard delete a user and cascade delete their fleets, vehicles, etc."""
+    if user_id == admin["user_id"]:
+        raise HTTPException(status_code=400, detail="You cannot delete your own admin account.")
+
     result = await db.execute(select(User).where(User.user_id == user_id))
     user = result.scalar_one_or_none()
 
