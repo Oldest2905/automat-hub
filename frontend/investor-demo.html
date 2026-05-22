@@ -41,7 +41,24 @@
         .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
         
         /* ThreeJS Canvas */
-        #three-container { width: 100%; height: 300px; border-radius: 8px; overflow: hidden; background: #000; }
+        #three-container { width: 100%; height: 300px; border-radius: 8px; overflow: hidden; background: #000; position: relative; }
+        .boot-screen { position: absolute; inset: 0; background: rgba(0,0,0,0.9); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--green); font-family: monospace; transition: opacity 0.5s ease; }
+        .boot-spinner { width: 30px; height: 30px; border: 2px solid rgba(16, 185, 129, 0.2); border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;}
+        .boot-text { font-weight: 700; letter-spacing: 2px; animation: text-glitch 0.3s infinite; }
+        
+        @keyframes text-glitch {
+            0% { transform: translate(0); text-shadow: none; }
+            20% { transform: translate(-2px, 1px); text-shadow: 2px 0 var(--accent), -2px 0 #0ff; }
+            21% { transform: translate(0); text-shadow: none; }
+            40% { transform: translate(2px, -1px); text-shadow: -2px 0 var(--accent), 2px 0 #0ff; }
+            41% { transform: translate(0); text-shadow: none; }
+            60% { transform: translate(-1px, 2px); text-shadow: 2px 0 var(--accent), -2px 0 #0ff; }
+            61% { transform: translate(0); text-shadow: none; }
+            80% { transform: translate(1px, -2px); text-shadow: -2px 0 var(--accent), 2px 0 #0ff; }
+            81% { transform: translate(0); text-shadow: none; }
+            100% { transform: translate(0); text-shadow: none; }
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
         
         /* Simulation Progress */
         .sim-box { margin-top: 15px; display: none; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
@@ -103,7 +120,12 @@
                 <div class="grid-2">
                     <div class="card" style="padding:0; overflow:hidden; display:flex; flex-direction:column;">
                         <h3 style="padding:24px 24px 0;">Trust Protocol Data Nodes</h3>
-                        <div id="three-container" style="flex:1;"></div>
+                        <div id="three-container" style="flex:1;">
+                            <div class="boot-screen" id="boot-screen">
+                                <div class="boot-spinner"></div>
+                                <div id="boot-text" class="boot-text">INITIALIZING PROTOCOL...</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="card">
                         <h3>Platform Escrow Volume (USD)</h3>
@@ -240,12 +262,16 @@
             // Add wireframe car model
             const carGroup = new THREE.Group();
             
+            const startColor = new THREE.Color(0x3b82f6); // Blue
+            const bodyTargetColor = new THREE.Color(0x2d3748); // Slate
+            const roofTargetColor = new THREE.Color(0xf05a1e); // Orange
+            
             const bodyGeo = new THREE.BoxGeometry(2.4, 0.5, 1.2);
-            const bodyMat = new THREE.MeshBasicMaterial({ color: 0x2d3748, wireframe: true, transparent: true, opacity: 0.5 });
+            const bodyMat = new THREE.MeshBasicMaterial({ color: startColor.clone(), wireframe: true, transparent: true, opacity: 0.5 });
             const body = new THREE.Mesh(bodyGeo, bodyMat);
             
             const roofGeo = new THREE.BoxGeometry(1.2, 0.4, 1.0);
-            const roofMat = new THREE.MeshBasicMaterial({ color: 0xf05a1e, wireframe: true, transparent: true, opacity: 0.3 });
+            const roofMat = new THREE.MeshBasicMaterial({ color: startColor.clone(), wireframe: true, transparent: true, opacity: 0.3 });
             const roof = new THREE.Mesh(roofGeo, roofMat);
             roof.position.set(-0.2, 0.45, 0);
             
@@ -261,18 +287,44 @@
             });
             
             // Add animated scanning laser line
-            const scanLineGeo = new THREE.PlaneGeometry(2.6, 0.03); // Adjust width to fit car
-            const scanLineMat = new THREE.MeshBasicMaterial({ color: 0xf05a1e, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+            const scanLineGeo = new THREE.PlaneGeometry(2.6, 0.03);
+            const scanLineMat = new THREE.MeshBasicMaterial({ color: startColor.clone(), transparent: true, opacity: 0.5, side: THREE.DoubleSide });
             const scanLine = new THREE.Mesh(scanLineGeo, scanLineMat);
             scanLine.position.y = 0; // Start at center of the car
             carGroup.add(scanLine);
             
-            carGroup.scale.set(0.8, 0.8, 0.8);
+            carGroup.scale.set(0, 0, 0); // Start hidden for boot sequence
             
             scene.add(particlesMesh);
             scene.add(carGroup);
             camera.position.z = 3.5;
             
+            // Boot sequence logic
+            const bootScreen = document.getElementById('boot-screen');
+            const bootText = document.getElementById('boot-text');
+            const bootMessages = [
+                "ESTABLISHING SECURE CONNECTION...",
+                "SYNCING ACTIVE VEHICLE NODES...",
+                "RENDERING 3D TELEMETRY..."
+            ];
+            
+            let msgIdx = 0;
+            const bootInterval = setInterval(() => {
+                if (msgIdx < bootMessages.length) {
+                    // Retrigger animation slightly to make it feel dynamic per line
+                    bootText.style.animation = 'none';
+                    void bootText.offsetWidth;
+                    bootText.style.animation = 'text-glitch 0.4s infinite';
+                    bootText.textContent = bootMessages[msgIdx];
+                    msgIdx++;
+                } else {
+                    clearInterval(bootInterval);
+                    bootScreen.style.opacity = '0';
+                    setTimeout(() => bootScreen.style.display = 'none', 500);
+                }
+            }, 800);
+            
+            let targetScale = 0;
             function animate() {
                 requestAnimationFrame(animate);
                 particlesMesh.rotation.y += 0.002;
