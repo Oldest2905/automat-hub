@@ -327,6 +327,6 @@ async def submit_final_scan(
             "fix_verified": False,
             "status": "repair_in_progress",
             "faults_fixed": list(fixed_faults),
-            "unfixed_faults": list(unfixed_faults),
+            "unfixed_faultmovs": list(unfixed_faults),
             "message": f"Fix incomplete. {len(unfixed_faults)} fault(s) still present. Continue repair."
         }

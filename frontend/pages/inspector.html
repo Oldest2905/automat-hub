@@ -1,1030 +1,579 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Inspector App — The Automat Hub</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#060A0F">
+  <link rel="icon" href="data:,">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="/frontend/obd-gatt.js"></script>
   <style>
     :root {
-      --black: #0a0a0a;
-      --orange: #E85D04;
-      --white: #f5f0e8;
-      --grey: #1a1a1a;
-      --grey-mid: #2a2a2a;
-      --grey-light: #888;
-      --green: #22c55e;
-      --red: #ef4444;
-      --yellow: #f59e0b;
-      --mono: 'Space Mono', monospace;
-      --sans: 'Syne', sans-serif;
+      --c-bg: #060A0F; --c-surface: #0C1420; --c-surface2: #111D2E;
+      --c-border: rgba(255, 255, 255, .07); --c-border2: rgba(255, 255, 255, .15);
+      --c-orange: #E88309; --c-text: #EEF2F8; --c-text2: #8A9BB5;
+      --c-green: #00D68F; --c-red: #FF4757; --c-amber: #FFB830;
+      --f-body: 'Outfit', sans-serif; --f-disp: 'Bebas Neue', sans-serif; --f-mono: 'JetBrains Mono', monospace;
     }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background: var(--black);
-      color: var(--white);
-      font-family: var(--sans);
-      min-height: 100vh;
-    }
-
-    /* ── TOP BAR ── */
-    .topbar {
-      background: var(--grey);
-      border-bottom: 1px solid #222;
-      padding: 14px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .topbar-left { display: flex; align-items: center; gap: 10px; }
-    .topbar-logo {
-      width: 32px; height: 32px; background: var(--orange);
-      border-radius: 6px; display: flex; align-items: center;
-      justify-content: center; font-size: 16px;
-    }
-    .topbar-title { font-size: 14px; font-weight: 800; }
-    .topbar-sub { font-family: var(--mono); font-size: 9px; color: var(--grey-light); letter-spacing: 0.1em; }
-
-    .inspector-badge {
-      background: rgba(232,93,4,0.1);
-      border: 1px solid rgba(232,93,4,0.3);
-      border-radius: 20px;
-      padding: 4px 12px;
-      font-family: var(--mono);
-      font-size: 10px;
-      color: var(--orange);
-    }
-
-    /* ── PROGRESS BAR ── */
-    .progress-bar-wrap {
-      height: 3px;
-      background: #222;
-    }
-
-    .progress-bar-fill {
-      height: 100%;
-      background: var(--orange);
-      transition: width 0.3s ease;
-    }
-
-    /* ── STEP TABS ── */
-    .step-tabs {
-      display: flex;
-      overflow-x: auto;
-      border-bottom: 1px solid #222;
-      background: var(--grey);
-      scrollbar-width: none;
-    }
-
-    .step-tabs::-webkit-scrollbar { display: none; }
-
-    .step-tab {
-      flex-shrink: 0;
-      padding: 12px 16px;
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      color: var(--grey-light);
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-
-    .step-tab.active {
-      color: var(--orange);
-      border-bottom-color: var(--orange);
-    }
-
-    .step-tab.done { color: var(--green); }
-
-    /* ── MAIN ── */
-    .main {
-      max-width: 640px;
-      margin: 0 auto;
-      padding: 24px 16px 100px;
-    }
-
-    /* ── SECTION ── */
-    .section { display: none; }
-    .section.active { display: block; }
-
-    .section-title {
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      margin-bottom: 4px;
-    }
-
-    .section-sub {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--grey-light);
-      margin-bottom: 24px;
-    }
-
-    /* ── FORM FIELDS ── */
-    .field {
-      margin-bottom: 16px;
-    }
-
-    .field label {
-      display: block;
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--grey-light);
-      margin-bottom: 6px;
-    }
-
-    .field input,
-    .field select,
-    .field textarea {
-      width: 100%;
-      background: var(--grey);
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 12px 14px;
-      color: var(--white);
-      font-family: var(--sans);
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .field input:focus,
-    .field select:focus,
-    .field textarea:focus {
-      border-color: var(--orange);
-    }
-
-    .field select option {
-      background: #1a1a1a;
-    }
-
-    .field-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    /* ── CHECKLIST ITEMS ── */
-    .checklist-group {
-      margin-bottom: 24px;
-    }
-
-    .checklist-group-title {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--orange);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #222;
-    }
-
-    .check-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid #1a1a1a;
-      gap: 12px;
-    }
-
-    .check-item:last-child { border-bottom: none; }
-
-    .check-label {
-      font-size: 13px;
-      flex: 1;
-    }
-
-    .check-buttons {
-      display: flex;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-
-    .check-btn {
-      padding: 6px 12px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: transparent;
-      color: var(--grey-light);
-      font-family: var(--mono);
-      font-size: 10px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .check-btn:hover { border-color: #555; color: var(--white); }
-    .check-btn.pass.selected { background: rgba(34,197,94,0.15); border-color: var(--green); color: var(--green); }
-    .check-btn.fail.selected { background: rgba(239,68,68,0.15); border-color: var(--red); color: var(--red); }
-    .check-btn.na.selected { background: rgba(136,136,136,0.15); border-color: #555; color: #888; }
-
-    /* ── OBD SECTION ── */
-    .obd-status-select {
-      margin-bottom: 16px;
-    }
-
-    .fault-codes-area {
-      margin-top: 12px;
-    }
-
-    /* ── SCORE DISPLAY ── */
-    .score-display {
-      background: var(--grey);
-      border: 1px solid #2a2a2a;
-      border-radius: 16px;
-      padding: 24px;
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    .score-big {
-      font-size: 72px;
-      font-weight: 800;
-      color: var(--orange);
-      line-height: 1;
-    }
-
-    .score-max {
-      font-family: var(--mono);
-      font-size: 14px;
-      color: var(--grey-light);
-      margin-top: 4px;
-    }
-
-    .score-grade-big {
-      display: inline-block;
-      background: var(--orange);
-      color: white;
-      font-size: 18px;
-      font-weight: 800;
-      padding: 6px 20px;
-      border-radius: 8px;
-      margin-top: 12px;
-      font-family: var(--mono);
-    }
-
-    /* ── BOTTOM BAR ── */
-    .bottom-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: var(--grey);
-      border-top: 1px solid #222;
-      padding: 16px 20px;
-      display: flex;
-      gap: 12px;
-    }
-
-    .btn {
-      flex: 1;
-      padding: 14px;
-      border-radius: 10px;
-      border: none;
-      font-family: var(--sans);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-primary {
-      background: var(--orange);
-      color: white;
-    }
-
-    .btn-primary:hover { background: var(--orange-dim, #c24d03); }
-    .btn-primary:disabled { background: #333; color: #555; cursor: not-allowed; }
-
-    .btn-secondary {
-      background: transparent;
-      color: var(--white);
-      border: 1px solid #333;
-    }
-
-    /* ── SUBMIT STATE ── */
-    .submit-section {
-      background: var(--grey);
-      border: 1px solid #2a2a2a;
-      border-radius: 16px;
-      padding: 24px;
-      margin-bottom: 20px;
-    }
-
-    .submit-title {
-      font-size: 18px;
-      font-weight: 800;
-      margin-bottom: 16px;
-    }
-
-    .submit-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid #222;
-      font-size: 13px;
-    }
-
-    .submit-row:last-child { border-bottom: none; }
-    .submit-row-label { color: var(--grey-light); }
-    .submit-row-value { font-weight: 600; font-family: var(--mono); }
-
-    /* ── SUCCESS STATE ── */
-    .success-screen {
-      display: none;
-      text-align: center;
-      padding: 60px 20px;
-    }
-
-    .success-screen.visible { display: block; }
-    .success-icon { font-size: 64px; margin-bottom: 20px; }
-    .success-title { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
-    .success-dcp-id {
-      font-family: var(--mono);
-      font-size: 14px;
-      color: var(--orange);
-      margin: 16px 0;
-      padding: 12px;
-      background: var(--grey);
-      border-radius: 8px;
-    }
-
-    .spinner {
-      width: 24px; height: 24px;
-      border: 3px solid rgba(255,255,255,0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      display: inline-block;
-      vertical-align: middle;
-      margin-right: 8px;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--f-body); -webkit-tap-highlight-color: transparent; }
+    body { background: var(--c-bg); color: var(--c-text); padding-bottom: 80px; overflow-x: hidden; }
+    
+    /* APP BAR */
+    .app-bar { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: rgba(6,10,15,0.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--c-border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 100; }
+    .app-title { font-family: var(--f-disp); font-size: 1.4rem; letter-spacing: 0.05em; color: var(--c-orange); }
+    .app-user { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 600; color: var(--c-text2); }
+    .u-av { width: 30px; height: 30px; border-radius: 50%; background: var(--c-surface2); display: flex; align-items: center; justify-content: center; color: var(--c-text); border: 1px solid var(--c-border2); }
+    
+    /* VIEWS */
+    .view { display: none; padding: 80px 20px 20px; animation: fade 0.3s ease; }
+    .view.active { display: block; }
+    @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* LOGIN */
+    #login-view { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; }
+    .login-box { width: 100%; max-width: 400px; background: var(--c-surface); padding: 30px 20px; border-radius: 16px; border: 1px solid var(--c-border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+    
+    /* FORMS */
+    .fg { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+    .fg label { font-size: 0.75rem; font-weight: 600; color: var(--c-text2); text-transform: uppercase; letter-spacing: 0.05em; }
+    input, select, textarea { width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--c-border2); color: var(--c-text); padding: 14px; border-radius: 10px; font-size: 1rem; outline: none; transition: border 0.2s; }
+    input:focus, select:focus, textarea:focus { border-color: var(--c-orange); }
+    
+    /* BUTTONS */
+    .btn { width: 100%; padding: 16px; border-radius: 12px; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; transition: 0.2s; }
+    .btn-orange { background: var(--c-orange); color: #fff; }
+    .btn-orange:active { transform: scale(0.98); background: #cc7000; }
+    .btn-ghost { background: transparent; color: var(--c-orange); border: 1px solid var(--c-orange); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    /* DASHBOARD */
+    .card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+    .dcp-stat { font-family: var(--f-disp); font-size: 3rem; line-height: 1; color: var(--c-text); }
+    .fab { position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px; border-radius: 50%; background: var(--c-orange); color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(232, 131, 9, 0.4); z-index: 100; cursor: pointer; }
+    
+    /* WIZARD TABS */
+    .wizard-nav { display: flex; gap: 8px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 4px; }
+    .w-tab { flex: 1; min-width: 80px; text-align: center; font-size: 0.75rem; font-weight: 700; color: var(--c-text3); border-bottom: 3px solid var(--c-border); padding-bottom: 8px; transition: 0.3s; }
+    .w-tab.active { color: var(--c-orange); border-color: var(--c-orange); }
+    .w-tab.done { color: var(--c-green); border-color: var(--c-green); }
+    .step { display: none; }
+    .step.active { display: block; animation: fade 0.3s ease; }
+    
+    /* OBD CONNECT */
+    .obd-box { border: 1px dashed var(--c-orange); border-radius: 12px; padding: 20px; text-align: center; background: rgba(232, 131, 9, 0.05); margin-bottom: 20px; }
+    .obd-status { font-family: var(--f-mono); font-size: 0.8rem; color: var(--c-text2); margin-top: 10px; }
+    .live-data { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .data-cell { background: var(--c-surface2); padding: 12px; border-radius: 8px; border: 1px solid var(--c-border); text-align: center; }
+    .data-cell .lbl { font-size: 0.65rem; color: var(--c-text3); text-transform: uppercase; margin-bottom: 4px; }
+    .data-cell .val { font-family: var(--f-mono); font-size: 1.1rem; color: var(--c-green); font-weight: 600; }
+    
+    /* TOASTS */
+    #toast-container { position: fixed; top: 70px; left: 10px; right: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+    .toast { background: var(--c-surface2); border-left: 4px solid var(--c-green); color: white; padding: 14px; border-radius: 8px; font-size: 0.85rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: slideDown 0.3s ease; }
+    .toast.err { border-left-color: var(--c-red); }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
-<div class="topbar">
-  <div class="topbar-left">
-    <div class="topbar-logo">🚗</div>
-    <div>
-      <div class="topbar-title">Inspector</div>
-      <div class="topbar-sub">AUTOMAT HUB PROTOCOL</div>
+  <div id="toast-container"></div>
+
+  <!-- LOGIN VIEW -->
+  <div id="login-view" class="view active">
+    <div style="text-align:center; margin-bottom:30px;">
+      <div style="font-family:var(--f-disp); font-size:2.5rem; color:var(--c-text);">INSPECTOR <span style="color:var(--c-orange)">APP</span></div>
+      <div style="font-size:0.85rem; color:var(--c-text2);">The Automat Hub Field Interface</div>
     </div>
-  </div>
-  <div class="inspector-badge" id="inspectorBadge">NOT LOGGED IN</div>
-</div>
-
-<!-- PROGRESS BAR -->
-<div class="progress-bar-wrap">
-  <div class="progress-bar-fill" id="progressFill" style="width: 0%"></div>
-</div>
-
-<!-- STEP TABS -->
-<div class="step-tabs">
-  <div class="step-tab active" onclick="goToStep(0)">1. VEHICLE</div>
-  <div class="step-tab" onclick="goToStep(1)">2. ENGINE</div>
-  <div class="step-tab" onclick="goToStep(2)">3. CHASSIS</div>
-  <div class="step-tab" onclick="goToStep(3)">4. SAFETY</div>
-  <div class="step-tab" onclick="goToStep(4)">5. OBD-II</div>
-  <div class="step-tab" onclick="goToStep(5)">6. SCORE</div>
-  <div class="step-tab" onclick="goToStep(6)">7. SUBMIT</div>
-</div>
-
-<!-- MAIN CONTENT -->
-<div class="main">
-
-  <!-- STEP 0: VEHICLE INFO -->
-  <div class="section active" id="step-0">
-    <div class="section-title">Vehicle Information</div>
-    <div class="section-sub">Enter vehicle details before beginning inspection</div>
-
-    <div class="field">
-      <label>VIN (17 Characters)*</label>
-      <input type="text" id="vin" placeholder="1C4HJXDN0MW524170" maxlength="17"
-             oninput="this.value=this.value.toUpperCase()" />
-    </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>Make*</label>
-        <input type="text" id="make" placeholder="Jeep" />
-      </div>
-      <div class="field">
-        <label>Model*</label>
-        <input type="text" id="model" placeholder="Wrangler Sport" />
-      </div>
-    </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>Year*</label>
-        <input type="number" id="year" placeholder="2021" min="1990" max="2030" />
-      </div>
-      <div class="field">
-        <label>Colour*</label>
-        <input type="text" id="colour" placeholder="Black" />
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Odometer (km)*</label>
-      <input type="number" id="odometer" placeholder="45000" min="0" />
-    </div>
-
-    <div class="field">
-      <label>Auditor ID*</label>
-      <input type="text" id="auditorId" placeholder="ATH-QA-084" />
+    <div class="login-box">
+      <form onsubmit="doLogin(event)">
+        <div class="fg"><label>Email</label><input type="email" id="l-email" required></div>
+        <div class="fg"><label>Password</label><input type="password" id="l-pw" required></div>
+        <button type="submit" class="btn btn-orange" id="login-btn">Sign In</button>
+      </form>
     </div>
   </div>
 
-  <!-- STEP 1: ENGINE -->
-  <div class="section" id="step-1">
-    <div class="section-title">Engine Inspection</div>
-    <div class="section-sub">Check all engine components</div>
-
-    <div class="checklist-group">
-      <div class="checklist-group-title">Engine & Drivetrain</div>
-
-      <div class="check-item">
-        <div class="check-label">Engine Compression</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'engine_compression','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'engine_compression','fail')">FAIL</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Engine Oil Condition</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'engine_oil','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'engine_oil','fail')">FAIL</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Coolant Level & Condition</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'coolant','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'coolant','fail')">FAIL</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Timing Belt / Chain</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'timing_belt','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'timing_belt','fail')">FAIL</button>
-          <button class="check-btn na" onclick="setCheck(this,'timing_belt','na')">N/A</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Transmission Condition</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'transmission','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'transmission','fail')">FAIL</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Transmission Fluid</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'trans_fluid','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'trans_fluid','fail')">FAIL</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Exhaust System</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'exhaust','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'exhaust','fail')">FAIL</button>
-        </div>
+  <!-- APP BAR (Visible when logged in) -->
+  <div class="app-bar" id="app-bar" style="display:none;">
+    <div class="app-title">TAH FIELD</div>
+    <div class="app-user" onclick="logout()">
+      <span id="u-name">Inspector</span>
+      <div class="u-av">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </div>
     </div>
   </div>
 
-  <!-- STEP 2: CHASSIS -->
-  <div class="section" id="step-2">
-    <div class="section-title">Chassis & Body</div>
-    <div class="section-sub">Structural integrity and body condition</div>
-
-    <div class="checklist-group">
-      <div class="checklist-group-title">Frame & Structure</div>
-
-      <div class="check-item">
-        <div class="check-label">Frame Alignment</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'frame_alignment','pass')">FACTORY</button>
-          <button class="check-btn fail" onclick="setCheck(this,'frame_alignment','fail')">BENT</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Rust Assessment</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'rust','pass')">MINIMAL</button>
-          <button class="check-btn fail" onclick="setCheck(this,'rust','fail')">HEAVY</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Accident History Indicators</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'accident','pass')">NONE</button>
-          <button class="check-btn fail" onclick="setCheck(this,'accident','fail')">FOUND</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Paint Uniformity</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'paint','pass')">UNIFORM</button>
-          <button class="check-btn fail" onclick="setCheck(this,'paint','fail')">MISMATCHED</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Panel Gaps</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'panel_gaps','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'panel_gaps','fail')">FAIL</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Undercarriage Condition</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'undercarriage','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'undercarriage','fail')">FAIL</button>
-        </div>
-      </div>
+  <!-- DASHBOARD VIEW -->
+  <div id="dash-view" class="view">
+    <div style="font-size:1.5rem; font-weight:700; margin-bottom:20px;">Welcome back.</div>
+    <div class="card">
+      <div style="font-size:0.75rem; color:var(--c-text2); text-transform:uppercase; margin-bottom:10px;">Your Inspections Today</div>
+      <div class="dcp-stat" id="stat-today">0</div>
+    </div>
+    <div style="font-size:0.85rem; font-weight:700; margin-bottom:12px; color:var(--c-text2);">Recent Issuances</div>
+    <div id="recent-dcps">
+      <div style="text-align:center; padding:30px; color:var(--c-text3); font-size:0.85rem;">No recent inspections.</div>
+    </div>
+    <div class="fab" onclick="startInspection()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </div>
   </div>
 
-  <!-- STEP 3: SAFETY -->
-  <div class="section" id="step-3">
-    <div class="section-title">Safety Systems</div>
-    <div class="section-sub">All safety-critical components</div>
-
-    <div class="checklist-group">
-      <div class="checklist-group-title">Brakes & Tyres</div>
-
-      <div class="check-item">
-        <div class="check-label">Brake Condition (Front)</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'brake_front','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'brake_front','fail')">FAIL</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Brake Condition (Rear)</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'brake_rear','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'brake_rear','fail')">FAIL</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Tyre Tread Depth</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'tyre_tread','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'tyre_tread','fail')">FAIL</button>
-        </div>
-      </div>
-
-      <div class="check-item">
-        <div class="check-label">Tyre Condition (Sidewall)</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'tyre_sidewall','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'tyre_sidewall','fail')">FAIL</button>
-        </div>
-      </div>
+  <!-- INSPECTION WIZARD VIEW -->
+  <div id="inspect-view" class="view">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div style="font-size:1.2rem; font-weight:700;">New Inspection</div>
+      <div style="font-size:0.75rem; color:var(--c-text3); cursor:pointer;" onclick="cancelInspection()">Cancel</div>
+    </div>
+    
+    <div class="wizard-nav">
+      <div class="w-tab active" id="tab-1">1. Vehicle</div>
+      <div class="w-tab" id="tab-2">2. Hardware</div>
+      <div class="w-tab" id="tab-3">3. Physical</div>
+      <div class="w-tab" id="tab-4">4. Issue</div>
     </div>
 
-    <div class="checklist-group">
-      <div class="checklist-group-title">Safety Systems</div>
+    <form id="dcp-form" onsubmit="submitDCP(event)">
+      <!-- STEP 1: VEHICLE -->
+      <div class="step active" id="step-1">
+        <div class="fg">
+          <label>VIN Number</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="i-vin" style="text-transform:uppercase; font-family:var(--f-mono);" placeholder="Enter 17-digit VIN" required>
+            <button type="button" class="btn btn-ghost" style="width:80px; padding:0;" onclick="decodeVIN()">Decode</button>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="fg"><label>Make</label><input type="text" id="i-make" required></div>
+          <div class="fg"><label>Model</label><input type="text" id="i-model" required></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="fg"><label>Year</label><input type="number" id="i-year" required></div>
+          <div class="fg"><label>Colour</label><input type="text" id="i-color" required></div>
+        </div>
+        <div class="fg"><label>Odometer (KM)</label><input type="number" id="i-odo" required></div>
+        <button type="button" class="btn btn-orange" style="margin-top:20px;" onclick="nextStep(2)">Next: OBD Scan →</button>
+      </div>
 
-      <div class="check-item">
-        <div class="check-label">Airbag Status</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'airbag','pass')">INTACT</button>
-          <button class="check-btn fail" onclick="setCheck(this,'airbag','fail')">DEPLOYED/FAULT</button>
+      <!-- STEP 2: HARDWARE -->
+      <div class="step" id="step-2">
+        <div class="obd-box">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--c-orange)" stroke-width="2" style="margin-bottom:10px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <div style="font-weight:700; margin-bottom:6px;">Connect OBD-II Dongle</div>
+          <div style="font-size:0.8rem; color:var(--c-text2); margin-bottom:16px;">Plug adapter into port, turn ignition ON.</div>
+          <button type="button" class="btn btn-ghost" id="bt-scan-btn" onclick="startOBD()">Scan for Bluetooth Device</button>
+          <div class="obd-status" id="obd-status">Waiting to connect...</div>
+        </div>
+        
+        <div id="live-ecu" style="display:none;">
+          <div style="font-size:0.75rem; color:var(--c-green); text-transform:uppercase; font-weight:700;">Live ECU Data</div>
+          <div class="live-data">
+            <div class="data-cell"><div class="lbl">Engine RPM</div><div class="val" id="ecu-rpm">—</div></div>
+            <div class="data-cell"><div class="lbl">Coolant Temp</div><div class="val" id="ecu-coolant">—</div></div>
+            <div class="data-cell"><div class="lbl">Battery Voltage</div><div class="val" id="ecu-batt">—</div></div>
+            <div class="data-cell"><div class="lbl">Fault Codes</div><div class="val" id="ecu-faults" style="color:var(--c-red)">0</div></div>
+          </div>
+          <!-- Hidden fields to store scanned faults -->
+          <input type="hidden" id="i-faults" value="">
+        </div>
+        
+        <div style="display:flex; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-ghost" onclick="nextStep(1)">Back</button>
+          <button type="button" class="btn btn-orange" onclick="nextStep(3)">Next: Visuals →</button>
         </div>
       </div>
 
-      <div class="check-item">
-        <div class="check-label">ABS System</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'abs','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'abs','fail')">FAULT</button>
-          <button class="check-btn na" onclick="setCheck(this,'abs','na')">N/A</button>
+      <!-- STEP 3: PHYSICAL -->
+      <div class="step" id="step-3">
+        <div style="font-size:0.85rem; color:var(--c-text2); margin-bottom:16px;">Rate systems from 0 (Critical) to 100 (Perfect). Engine & Electrical are pre-filled by OBD if scanned.</div>
+        
+        <div class="fg">
+          <label>Mechanical Systems (Engine/Transmission)</label>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <input type="range" id="s-mech" min="0" max="100" value="85" style="flex:1;" oninput="document.getElementById('v-mech').innerText=this.value">
+            <span id="v-mech" style="font-family:var(--f-mono); width:30px; text-align:right;">85</span>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Electrical & Controls</label>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <input type="range" id="s-elec" min="0" max="100" value="85" style="flex:1;" oninput="document.getElementById('v-elec').innerText=this.value">
+            <span id="v-elec" style="font-family:var(--f-mono); width:30px; text-align:right;">85</span>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Structural Integrity (Frame/Body)</label>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <input type="range" id="s-struc" min="0" max="100" value="90" style="flex:1;" oninput="document.getElementById('v-struc').innerText=this.value">
+            <span id="v-struc" style="font-family:var(--f-mono); width:30px; text-align:right;">90</span>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Maintenance Compliance</label>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <input type="range" id="s-maint" min="0" max="100" value="80" style="flex:1;" oninput="document.getElementById('v-maint').innerText=this.value">
+            <span id="v-maint" style="font-family:var(--f-mono); width:30px; text-align:right;">80</span>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Operational Tech (Infotainment/Sensors)</label>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <input type="range" id="s-tech" min="0" max="100" value="95" style="flex:1;" oninput="document.getElementById('v-tech').innerText=this.value">
+            <span id="v-tech" style="font-family:var(--f-mono); width:30px; text-align:right;">95</span>
+          </div>
+        </div>
+        
+        <div style="display:flex; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-ghost" onclick="nextStep(2)">Back</button>
+          <button type="button" class="btn btn-orange" onclick="nextStep(4)">Next: Issue →</button>
         </div>
       </div>
 
-      <div class="check-item">
-        <div class="check-label">Battery Health</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'battery','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'battery','fail')">FAIL</button>
+      <!-- STEP 4: ISSUE -->
+      <div class="step" id="step-4">
+        <div class="card" style="background:var(--c-surface2); margin-bottom:20px;">
+          <div style="text-align:center;">
+            <div style="font-size:0.75rem; color:var(--c-text3); text-transform:uppercase;">Calculated Health Score</div>
+            <div class="dcp-stat" id="final-score" style="color:var(--c-green); margin:10px 0;">--</div>
+            <div style="font-size:0.85rem; font-weight:600;" id="final-vehicle">--</div>
+            <div style="font-family:var(--f-mono); font-size:0.7rem; color:var(--c-text2);" id="final-vin">--</div>
+          </div>
         </div>
-      </div>
 
-      <div class="check-item">
-        <div class="check-label">Alternator Output</div>
-        <div class="check-buttons">
-          <button class="check-btn pass" onclick="setCheck(this,'alternator','pass')">PASS</button>
-          <button class="check-btn fail" onclick="setCheck(this,'alternator','fail')">FAIL</button>
+        <div class="fg">
+          <label>Inspector Notes (Publicly visible)</label>
+          <textarea id="i-notes" rows="3" placeholder="Note any visible exterior damages, scratches, or missing components..." required></textarea>
+        </div>
+        
+        <div class="fg">
+          <label>Damage Photos (Optional)</label>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <input type="file" id="i-photo" accept="image/*" capture="environment" style="display:none;" onchange="document.getElementById('photo-status').textContent = '📸 ' + this.files[0].name">
+            <button type="button" class="btn btn-ghost" style="padding:10px; width:auto;" onclick="document.getElementById('i-photo').click()">Open Camera</button>
+            <span id="photo-status" style="font-size:0.75rem; color:var(--c-text3); font-family:var(--f-mono);">No photo selected</span>
+          </div>
+        </div>
+
+        <div style="font-size:0.75rem; color:var(--c-amber); line-height:1.5; margin-bottom:20px; background:rgba(255,184,48,0.1); padding:10px; border-radius:8px;">
+          <strong>Declaration:</strong> By issuing this DCP, I confirm this vehicle was physically inspected at The Automat Hub and the hardware telemetry is accurate.
+        </div>
+        
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-ghost" onclick="nextStep(3)">Back</button>
+          <button type="submit" class="btn btn-orange" id="submit-btn">Issue Immutable DCP</button>
         </div>
       </div>
-    </div>
+    </form>
   </div>
 
-  <!-- STEP 4: OBD-II -->
-  <div class="section" id="step-4">
-    <div class="section-title">OBD-II Diagnostics</div>
-    <div class="section-sub">Connect scanner and record results</div>
+  <script>
+    const API_BASE = window.location.origin;
+    let TOKEN = localStorage.getItem('tah_token') || '';
+    let USER = JSON.parse(localStorage.getItem('tah_user') || 'null');
+    let obdBridge = null;
+    let FAULT_CODES = [];
 
-    <div class="field">
-      <label>OBD-II Status*</label>
-      <select id="obd2Status">
-        <option value="">Select status...</option>
-        <option value="Clear">Clear — No fault codes</option>
-        <option value="Faults Present">Faults Present</option>
-        <option value="Not Ready">Not Ready — Monitors incomplete</option>
-      </select>
-    </div>
-
-    <div class="field" id="faultCodesField" style="display:none">
-      <label>Fault Codes (one per line)</label>
-      <textarea id="faultCodes" rows="4" placeholder="P0301&#10;P0420"></textarea>
-    </div>
-
-    <div class="field">
-      <label>AI Condition Grade</label>
-      <select id="aiGrade">
-        <option value="Excellent">Excellent (90-100)</option>
-        <option value="Good">Good (75-89)</option>
-        <option value="Fair">Fair (60-74)</option>
-        <option value="Poor">Poor (Below 60)</option>
-      </select>
-    </div>
-
-    <div class="field">
-      <label>Inspector Notes</label>
-      <textarea id="notes" rows="4" placeholder="Any additional observations..."></textarea>
-    </div>
-  </div>
-
-  <!-- STEP 5: SCORE -->
-  <div class="section" id="step-5">
-    <div class="section-title">Inspection Score</div>
-    <div class="section-sub">Calculated from all inspection points</div>
-
-    <div class="score-display">
-      <div class="score-big" id="calculatedScore">--</div>
-      <div class="score-max">OUT OF 100</div>
-      <div class="score-grade-big" id="calculatedGrade">--</div>
-    </div>
-
-    <div id="scoreBreakdown" style="background: var(--grey); border: 1px solid #2a2a2a; border-radius: 12px; padding: 16px;"></div>
-  </div>
-
-  <!-- STEP 6: SUBMIT -->
-  <div class="section" id="step-6">
-    <div class="section-title">Issue DCP</div>
-    <div class="section-sub">Review and submit to issue the Digital Condition Passport</div>
-
-    <div class="submit-section" id="summarySection">
-      <div class="submit-title">Inspection Summary</div>
-      <div id="summaryRows"></div>
-    </div>
-
-    <div style="text-align:center; padding: 20px 0;">
-      <button class="btn btn-primary" id="submitBtn"
-              onclick="submitDCP()"
-              style="max-width: 300px; display: inline-block;">
-        Issue Digital Condition Passport
-      </button>
-    </div>
-  </div>
-
-  <!-- SUCCESS -->
-  <div class="success-screen" id="successScreen">
-    <div class="success-icon">🛡️</div>
-    <div class="success-title">DCP Issued Successfully</div>
-    <div style="color: var(--grey-light); font-size: 14px;">Digital Condition Passport has been created and hashed.</div>
-    <div class="success-dcp-id" id="successDcpId">ATH-2026---------</div>
-    <div style="margin-top: 20px;">
-      <button class="btn btn-primary" style="max-width: 200px; display:inline-block;"
-              onclick="location.reload()">New Inspection</button>
-    </div>
-  </div>
-
-</div>
-
-<!-- BOTTOM BAR -->
-<div class="bottom-bar" id="bottomBar">
-  <button class="btn btn-secondary" id="prevBtn" onclick="prevStep()" style="display:none">← BACK</button>
-  <button class="btn btn-primary" id="nextBtn" onclick="nextStep()">NEXT →</button>
-</div>
-<script src="/frontend/shared/config.js"></script>
-<script>
-  const API_BASE = 'https://automatcorp.org.ng/api';
-  const TOTAL_STEPS = 7;
-  let currentStep = 0;
-  let checks = {};
-  let authToken = localStorage.getItem('automat_token') || '';
-
-  // ── AUTH ──────────────────────────────────────────────────
-  async function ensureAuth() {
-    if (authToken) {
-      document.getElementById('inspectorBadge').textContent =
-        localStorage.getItem('automat_auditor') || 'LOGGED IN';
-      return true;
+    function toast(msg, type='info') {
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.textContent = msg;
+      c.appendChild(t);
+      setTimeout(() => { t.style.opacity=0; setTimeout(()=>t.remove(), 300); }, 3000);
     }
 
-    const username = prompt('Inspector ID:');
-    const password = prompt('Password:');
-
-    if (!username || !password) return false;
-
-    try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-
-      const data = await res.json();
-
-      if (data.access_token) {
-        authToken = data.access_token;
-        localStorage.setItem('automat_token', authToken);
-        localStorage.setItem('automat_auditor', username);
-        document.getElementById('inspectorBadge').textContent = username;
-
-        // Pre-fill auditor ID
-        document.getElementById('auditorId').value = username;
-        return true;
-      }
-
-      alert('Invalid credentials');
-      return false;
-    } catch (e) {
-      alert('Login failed. Check connection.');
-      return false;
-    }
-  }
-
-  // ── CHECKLIST ─────────────────────────────────────────────
-  function setCheck(btn, key, value) {
-    const group = btn.parentElement;
-    group.querySelectorAll('.check-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    checks[key] = value;
-    updateProgress();
-  }
-
-  // ── NAVIGATION ────────────────────────────────────────────
-  function goToStep(n) {
-    document.querySelectorAll('.section').forEach((s, i) => {
-      s.classList.toggle('active', i === n);
-    });
-    document.querySelectorAll('.step-tab').forEach((t, i) => {
-      t.classList.toggle('active', i === n);
-    });
-
-    currentStep = n;
-
-    document.getElementById('prevBtn').style.display = n > 0 ? 'flex' : 'none';
-
-    const nextBtn = document.getElementById('nextBtn');
-    if (n === TOTAL_STEPS - 1) {
-      nextBtn.style.display = 'none';
-    } else {
-      nextBtn.style.display = 'flex';
-      nextBtn.textContent = n === TOTAL_STEPS - 2 ? 'REVIEW →' : 'NEXT →';
+    async function api(method, path, body) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (TOKEN) headers['Authorization'] = `Bearer ${TOKEN}`;
+      try {
+        const res = await fetch(`${API_BASE}${path}`, { method, headers, body: body ? JSON.stringify(body) : null });
+        const data = await res.json();
+        return { ok: res.ok, status: res.status, data };
+      } catch(e) { return { ok: false, data: { detail: 'Network error' } }; }
     }
 
-    // Calculate score on step 5
-    if (n === 5) calculateScore();
-
-    // Build summary on step 6
-    if (n === 6) buildSummary();
-
-    updateProgress();
-    window.scrollTo(0, 0);
-  }
-
-  function nextStep() {
-    if (currentStep < TOTAL_STEPS - 1) goToStep(currentStep + 1);
-  }
-
-  function prevStep() {
-    if (currentStep > 0) goToStep(currentStep - 1);
-  }
-
-  function updateProgress() {
-    const pct = ((currentStep + 1) / TOTAL_STEPS) * 100;
-    document.getElementById('progressFill').style.width = pct + '%';
-  }
-
-  // ── SCORE CALCULATION ────────────────────────────────────
-  function calculateScore() {
-    const total = Object.keys(checks).length;
-    if (total === 0) {
-      document.getElementById('calculatedScore').textContent = '--';
-      document.getElementById('calculatedGrade').textContent = '--';
-      return 0;
-    }
-
-    const passed = Object.values(checks).filter(v => v === 'pass').length;
-    const nas = Object.values(checks).filter(v => v === 'na').length;
-    const applicable = total - nas;
-    const score = applicable > 0 ? Math.round((passed / applicable) * 100) : 0;
-
-    document.getElementById('calculatedScore').textContent = score;
-
-    let grade = 'D';
-    if (score >= 90) grade = 'A';
-    else if (score >= 75) grade = 'B';
-    else if (score >= 60) grade = 'C';
-
-    document.getElementById('calculatedGrade').textContent = `Grade ${grade}`;
-
-    // Breakdown
-    const breakdown = document.getElementById('scoreBreakdown');
-    breakdown.innerHTML = `
-      <div style="font-family:var(--mono);font-size:10px;color:var(--grey-light);margin-bottom:12px;letter-spacing:0.1em;">BREAKDOWN</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">
-        <div>
-          <div style="font-size:24px;font-weight:800;color:var(--green)">${passed}</div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--grey-light)">PASSED</div>
-        </div>
-        <div>
-          <div style="font-size:24px;font-weight:800;color:var(--red)">${Object.values(checks).filter(v=>v==='fail').length}</div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--grey-light)">FAILED</div>
-        </div>
-        <div>
-          <div style="font-size:24px;font-weight:800;color:#888">${nas}</div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--grey-light)">N/A</div>
-        </div>
-      </div>
-    `;
-
-    return score;
-  }
-
-  // ── SUMMARY BUILD ────────────────────────────────────────
-  function buildSummary() {
-    const score = calculateScore();
-    const grade = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : 'D';
-
-    const rows = [
-      ['VIN', document.getElementById('vin').value || '---'],
-      ['Vehicle', `${document.getElementById('year').value} ${document.getElementById('make').value} ${document.getElementById('model').value}`],
-      ['Odometer', `${parseInt(document.getElementById('odometer').value || 0).toLocaleString()} km`],
-      ['Auditor', document.getElementById('auditorId').value || '---'],
-      ['Score', `${score}/100 — Grade ${grade}`],
-      ['OBD-II', document.getElementById('obd2Status').value || '---'],
-      ['Checks Completed', Object.keys(checks).length],
-    ];
-
-    document.getElementById('summaryRows').innerHTML = rows.map(([l, v]) =>
-      `<div class="submit-row">
-        <span class="submit-row-label">${l}</span>
-        <span class="submit-row-value">${v}</span>
-      </div>`
-    ).join('');
-  }
-
-  // ── SUBMIT DCP ───────────────────────────────────────────
-  async function submitDCP() {
-    if (!authToken) {
-      const ok = await ensureAuth();
-      if (!ok) return;
-    }
-
-    const vin = document.getElementById('vin').value.trim();
-    if (!vin || vin.length !== 17) {
-      alert('Valid 17-character VIN is required');
-      goToStep(0);
-      return;
-    }
-
-    const score = calculateScore();
-    const grade = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : 'D';
-
-    const btn = document.getElementById('submitBtn');
-    btn.innerHTML = '<span class="spinner"></span> Issuing DCP...';
-    btn.disabled = true;
-
-    const payload = {
-      vehicle: {
-        vin: vin,
-        make: document.getElementById('make').value,
-        model: document.getElementById('model').value,
-        year: parseInt(document.getElementById('year').value),
-        colour: document.getElementById('colour').value,
-        odometer: parseInt(document.getElementById('odometer').value)
-      },
-      inspection: {
-        obd2_status: document.getElementById('obd2Status').value || 'Clear',
-        obd2_fault_codes: document.getElementById('faultCodes').value
-          .split('\n').filter(Boolean),
-        obd2_readiness_monitors: {},
-        engine_compression: checks.engine_compression === 'pass' ? 'Nominal' : 'Poor',
-        engine_oil_condition: checks.engine_oil === 'pass' ? 'Good' : 'Poor',
-        coolant_condition: checks.coolant === 'pass' ? 'Good' : 'Poor',
-        timing_belt_condition: checks.timing_belt === 'na' ? 'Good' : checks.timing_belt === 'pass' ? 'Good' : 'Poor',
-        transmission_condition: checks.transmission === 'pass' ? 'Good' : 'Poor',
-        transmission_fluid: checks.trans_fluid === 'pass' ? 'Good' : 'Poor',
-        frame_alignment: checks.frame_alignment === 'pass' ? 'Factory' : 'Misaligned',
-        rust_assessment: checks.rust === 'pass' ? 'Minimal' : 'Heavy',
-        accident_history_indicators: checks.accident === 'fail',
-        paint_uniformity: checks.paint === 'pass' ? 'Uniform' : 'Mismatched',
-        battery_health: checks.battery === 'pass' ? 'Good' : 'Poor',
-        alternator_output: checks.alternator === 'pass' ? 'Nominal' : 'Poor',
-        electronics_status: 'Good',
-        brake_condition: checks.brake_front === 'pass' ? 'Nominal' : 'Poor',
-        tyre_condition: {
-          tread: checks.tyre_tread === 'pass' ? 'Good' : 'Worn',
-          sidewall: checks.tyre_sidewall === 'pass' ? 'Good' : 'Cracked'
-        },
-        airbag_status: checks.airbag === 'pass' ? 'Intact' : 'Fault',
-        abs_status: checks.abs === 'na' ? 'Not Applicable' : checks.abs === 'pass' ? 'Functional' : 'Fault',
-        ai_condition_grade: document.getElementById('aiGrade').value,
-        ai_confidence_score: 0.95,
-        ai_flags: [],
-        checklist_results: checks,
-        score: score,
-        inspector_notes: document.getElementById('notes').value
-      },
-      auditor_id: document.getElementById('auditorId').value,
-      warranty_days: 30
-    };
-
-    try {
-      const res = await fetch(`${API_BASE}/dcp/issue`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        const dcpId = data.data.dcp_id;
-        document.getElementById('step-6').style.display = 'none';
-        document.getElementById('bottomBar').style.display = 'none';
-        const success = document.getElementById('successScreen');
-        success.className = 'success-screen visible';
-        document.getElementById('successDcpId').textContent = dcpId;
+    // --- INITIALIZATION ---
+    function checkAuth() {
+      if (TOKEN && USER && (USER.role === 'inspector' || USER.role === 'admin')) {
+        document.getElementById('login-view').classList.remove('active');
+        document.getElementById('app-bar').style.display = 'flex';
+        document.getElementById('u-name').textContent = USER.full_name.split(' ')[0];
+        loadDashboard();
       } else {
-        alert('Error: ' + (data.detail || 'DCP issuance failed'));
-        btn.innerHTML = 'Issue Digital Condition Passport';
-        btn.disabled = false;
+        document.getElementById('login-view').classList.add('active');
+        document.getElementById('dash-view').classList.remove('active');
+        document.getElementById('inspect-view').classList.remove('active');
+        document.getElementById('app-bar').style.display = 'none';
       }
-
-    } catch (err) {
-      alert('Network error. Check connection and try again.');
-      btn.innerHTML = 'Issue Digital Condition Passport';
-      btn.disabled = false;
     }
-  }
 
-  // ── OBD STATUS TOGGLE ────────────────────────────────────
-  document.getElementById('obd2Status').addEventListener('change', function() {
-    document.getElementById('faultCodesField').style.display =
-      this.value === 'Faults Present' ? 'block' : 'none';
-  });
+    async function doLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      btn.textContent = 'Authenticating...'; btn.disabled = true;
+      
+      const r = await api('POST', '/auth/login', {
+        email: document.getElementById('l-email').value,
+        password: document.getElementById('l-pw').value
+      });
+      
+      btn.textContent = 'Sign In'; btn.disabled = false;
+      
+      if (r.ok && (r.data.user.role === 'inspector' || r.data.user.role === 'admin')) {
+        TOKEN = r.data.access_token;
+        USER = r.data.user;
+        localStorage.setItem('tah_token', TOKEN);
+        localStorage.setItem('tah_user', JSON.stringify(USER));
+        checkAuth();
+        toast('Login successful', 'ok');
+      } else {
+        toast(r.ok ? 'Access Denied: Inspectors only' : r.data.detail || 'Login failed', 'err');
+      }
+    }
 
-  // ── INIT ─────────────────────────────────────────────────
-  window.addEventListener('DOMContentLoaded', () => {
-    ensureAuth();
-    goToStep(0);
-  });
-</script>
+    function logout() {
+      if(confirm('Sign out of Inspector App?')) {
+        localStorage.removeItem('tah_token');
+        localStorage.removeItem('tah_user');
+        TOKEN = ''; USER = null;
+        checkAuth();
+      }
+    }
+
+    // --- DASHBOARD ---
+    async function loadDashboard() {
+      document.getElementById('dash-view').classList.add('active');
+      document.getElementById('inspect-view').classList.remove('active');
+      
+      const r = await api('GET', '/admin/dcps?limit=10');
+      if (r.ok) {
+        const dcps = r.data.dcps || [];
+        // Filter for today's issuances by this inspector
+        const today = new Date().toISOString().split('T')[0];
+        const mine = dcps.filter(d => d.auditor_id === USER.user_id);
+        const todayMine = mine.filter(d => d.issued_at.startsWith(today));
+        
+        document.getElementById('stat-today').textContent = todayMine.length;
+        
+        const list = document.getElementById('recent-dcps');
+        if (mine.length === 0) {
+          list.innerHTML = `<div style="text-align:center; padding:30px; color:var(--c-text3); font-size:0.85rem;">No recent inspections.</div>`;
+        } else {
+          list.innerHTML = mine.slice(0,5).map(d => `
+            <div style="background:var(--c-surface2); padding:14px; border-radius:12px; margin-bottom:10px; border:1px solid var(--c-border); display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-family:var(--f-mono); font-size:0.7rem; color:var(--c-orange); margin-bottom:2px;">${d.dcp_id}</div>
+                <div style="font-weight:600; font-size:0.9rem;">${d.year} ${d.make} ${d.model}</div>
+              </div>
+              <div style="font-family:var(--f-disp); font-size:1.8rem; color:${d.score >= 80 ? 'var(--c-green)' : 'var(--c-red)'}">${d.score}</div>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    // --- WIZARD LOGIC ---
+    function startInspection() {
+      document.getElementById('dash-view').classList.remove('active');
+      document.getElementById('inspect-view').classList.add('active');
+      document.getElementById('dcp-form').reset();
+      FAULT_CODES = [];
+      document.getElementById('live-ecu').style.display = 'none';
+      nextStep(1);
+    }
+
+    function cancelInspection() {
+      if(confirm('Discard this inspection?')) {
+        if(obdBridge) obdBridge.disconnect();
+        loadDashboard();
+      }
+    }
+
+    function nextStep(step) {
+      document.querySelectorAll('.step').forEach(e => e.classList.remove('active'));
+      document.getElementById(`step-${step}`).classList.add('active');
+      
+      document.querySelectorAll('.w-tab').forEach((e, i) => {
+        e.className = 'w-tab';
+        if (i < step - 1) e.classList.add('done');
+        if (i === step - 1) e.classList.add('active');
+      });
+
+      // Pre-calculate score on Step 4
+      if (step === 4) {
+        const m = parseInt(document.getElementById('s-mech').value);
+        const e = parseInt(document.getElementById('s-elec').value);
+        const s = parseInt(document.getElementById('s-struc').value);
+        const c = parseInt(document.getElementById('s-maint').value);
+        const t = parseInt(document.getElementById('s-tech').value);
+        const hse = 100; // Default assumption for HSE in this quick wizard
+        
+        let score = Math.round((m + e + s + c + t + hse) / 6);
+        
+        // Deduct for hardware faults
+        if(FAULT_CODES.length > 0) score -= (FAULT_CODES.length * 10);
+        if(score < 0) score = 0;
+        
+        document.getElementById('final-score').textContent = score;
+        document.getElementById('final-score').style.color = score >= 80 ? 'var(--c-green)' : score >= 60 ? 'var(--c-amber)' : 'var(--c-red)';
+        document.getElementById('final-vehicle').textContent = `${document.getElementById('i-year').value} ${document.getElementById('i-make').value} ${document.getElementById('i-model').value}`;
+        document.getElementById('final-vin').textContent = document.getElementById('i-vin').value.toUpperCase();
+      }
+    }
+
+    // --- VIN DECODER ---
+    async function decodeVIN() {
+      const vin = document.getElementById('i-vin').value.toUpperCase();
+      if (vin.length !== 17) return toast('Invalid VIN. Must be 17 chars.', 'err');
+      
+      toast('Decoding VIN...', 'info');
+      try {
+        const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`);
+        const data = await res.json();
+        if (data.Results) {
+          const make = data.Results.find(r => r.Variable === "Make")?.Value;
+          const model = data.Results.find(r => r.Variable === "Model")?.Value;
+          const year = data.Results.find(r => r.Variable === "Model Year")?.Value;
+          if (make && make !== "null") document.getElementById('i-make').value = make;
+          if (model && model !== "null") document.getElementById('i-model').value = model;
+          if (year && year !== "null") document.getElementById('i-year').value = year;
+          toast('VIN Decoded', 'ok');
+        }
+      } catch (e) { toast('VIN Decode Failed', 'err'); }
+    }
+
+    // --- OBD GATT BLUETOOTH INTEGRATION ---
+    async function startOBD() {
+      const btn = document.getElementById('bt-scan-btn');
+      const stat = document.getElementById('obd-status');
+      
+      if (!navigator.bluetooth) {
+        toast('Web Bluetooth not supported on this device/browser.', 'err');
+        stat.textContent = "Bluetooth unavailable. Proceed manually.";
+        return;
+      }
+      
+      btn.textContent = 'Scanning...'; btn.disabled = true;
+      stat.textContent = 'Select ELM327/OBD device in popup...';
+
+      obdBridge = new OBDGATTBridge({
+        onStatus: (msg) => { stat.textContent = msg; },
+        onData: (key, val, unit) => {
+          if (key === 'engine_rpm') document.getElementById('ecu-rpm').textContent = val;
+          if (key === 'coolant_temp_c') document.getElementById('ecu-coolant').textContent = val + '°C';
+          if (key === 'battery_voltage') document.getElementById('ecu-batt').textContent = val + 'V';
+          if (key === 'odometer_km' && !document.getElementById('i-odo').value) {
+              document.getElementById('i-odo').value = val;
+          }
+        },
+        onFault: (codes) => {
+          FAULT_CODES = codes;
+          document.getElementById('ecu-faults').textContent = codes.length + ' Faults';
+          document.getElementById('i-faults').value = codes.join(',');
+          
+          // Automatically adjust physical sliders down if engine faults found
+          const mechSlider = document.getElementById('s-mech');
+          mechSlider.value = Math.max(0, parseInt(mechSlider.value) - (codes.length * 15));
+          document.getElementById('v-mech').innerText = mechSlider.value;
+          
+          toast(`Detected ${codes.length} fault codes`, 'err');
+        },
+        onDisconnect: () => { stat.textContent = 'Disconnected'; }
+      });
+
+      try {
+        const devName = await obdBridge.connect();
+        btn.textContent = 'Connected: ' + devName;
+        stat.textContent = 'Reading ECU data...';
+        document.getElementById('live-ecu').style.display = 'block';
+        
+        // Pull the live data payload
+        await obdBridge.readAllData();
+        stat.textContent = 'Data read complete. Proceed to next step.';
+      } catch (e) {
+        btn.textContent = 'Retry Bluetooth Scan'; btn.disabled = false;
+        stat.textContent = e.message;
+        toast(e.message, 'err');
+      }
+    }
+
+    // --- SUBMIT DCP ---
+    async function submitDCP(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      btn.textContent = 'Generating Hash...'; btn.disabled = true;
+      
+      const m = parseInt(document.getElementById('s-mech').value);
+      const el = parseInt(document.getElementById('s-elec').value);
+      const s = parseInt(document.getElementById('s-struc').value);
+      const c = parseInt(document.getElementById('s-maint').value);
+      const t = parseInt(document.getElementById('s-tech').value);
+      const score = parseInt(document.getElementById('final-score').textContent);
+      const faults = FAULT_CODES.length > 0 ? FAULT_CODES : document.getElementById('i-faults').value.split(',').filter(Boolean);
+
+      const payload = {
+        warranty_days: 30,
+        vehicle: {
+          vin: document.getElementById('i-vin').value.toUpperCase(),
+          make: document.getElementById('i-make').value,
+          model: document.getElementById('i-model').value,
+          year: parseInt(document.getElementById('i-year').value),
+          colour: document.getElementById('i-color').value,
+          odometer: parseInt(document.getElementById('i-odo').value) || 0
+        },
+        inspection: {
+          score: score,
+          mechanical_systems: m,
+          electrical_controls: el,
+          structural_integrity: s,
+          maintenance_compliance: c,
+          hse_standards: 100,
+          operational_technology: t,
+          obd2_status: faults.length > 0 ? "Faults Present" : "Clear",
+          obd2_fault_codes: faults,
+          obd2_readiness_monitors: {},
+          engine_compression: "Good",
+          engine_oil_condition: "Good",
+          coolant_condition: "Good",
+          timing_belt_condition: "Good",
+          transmission_condition: "Good",
+          transmission_fluid: "Good",
+          frame_alignment: "Good",
+          rust_assessment: "Good",
+          accident_history_indicators: false,
+          paint_uniformity: "Good",
+          battery_health: "Good",
+          alternator_output: "Good",
+          electronics_status: "Good",
+          brake_condition: "Good",
+          tyre_condition: {"front_left": "Good", "front_right": "Good", "rear_left": "Good", "rear_right": "Good"},
+          airbag_status: "Good",
+          abs_status: "Good",
+          ai_condition_grade: "A",
+          ai_confidence_score: 0.95,
+          ai_flags: [],
+          checklist_results: {},
+          inspector_notes: document.getElementById('i-notes').value
+        },
+        auditor_id: USER.user_id
+      };
+
+      const r = await api('POST', '/dcp/issue', payload);
+      btn.textContent = 'Issue Immutable DCP'; btn.disabled = false;
+      
+      if (r.ok) {
+        toast(`DCP Issued Successfully: ${r.data.data.dcp_id}`, 'ok');
+        if(obdBridge) obdBridge.disconnect();
+        setTimeout(() => loadDashboard(), 1500);
+      } else {
+        toast(r.data.detail || 'Failed to issue DCP', 'err');
+      }
+    }
+
+    // Boot
+    checkAuth();
+  </script>
 </body>
 </html>
