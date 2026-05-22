@@ -474,12 +474,12 @@
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                e.target.classList.add('active');
+                e.currentTarget.classList.add('active');
                 
-                const target = e.target.getAttribute('data-target');
+                const target = e.currentTarget.getAttribute('data-target');
                 document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
                 document.getElementById('sec-' + target).classList.remove('hidden');
-                document.getElementById('page-title').textContent = e.target.textContent;
+                document.getElementById('page-title').textContent = e.currentTarget.textContent;
             });
         });
 

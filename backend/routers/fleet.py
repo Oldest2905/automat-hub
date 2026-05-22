@@ -29,7 +29,7 @@ from backend.models.fleet import (
     VehicleAlert, LocationHistory
 )
 from backend.models.workshop import RepairJob
-from backend.services.scan_service import process_hourly_scan
+from backend.services.manufacturer_service import process_hourly_scan
 
 router = APIRouter(prefix="/fleet", tags=["Fleet Management"])
 
@@ -666,7 +666,6 @@ async def submit_scan(
     ))
     scan_data["fault_codes"] = all_faults
 
-    from backend.services.manufacturer_service import process_hourly_scan
     result = await process_hourly_scan(payload.vehicle_id, scan_data, db)
 
     if "error" in result:

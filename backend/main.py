@@ -118,12 +118,12 @@ app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
 @app.get("/app", include_in_schema=False)
 async def app_redirect():
-    return FileResponse("frontend/index.html")
+    return RedirectResponse(url="/frontend/index.html")
 
 @app.get("/", include_in_schema=False)
 async def serve_frontend():
     """Serves the main application directly at the root URL."""
-    return FileResponse("frontend/index.html")
+    return RedirectResponse(url="/frontend/index.html")
 
 @app.get("/cov", include_in_schema=False)
 async def serve_cov():

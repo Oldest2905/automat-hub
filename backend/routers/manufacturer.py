@@ -346,7 +346,7 @@ async def trigger_scan_now(
         }
 
     # Process the scan
-    from backend.services.scan_service import process_hourly_scan
+    from backend.services.manufacturer_service import process_hourly_scan
     scan_result = await process_hourly_scan(vehicle_id, scan_data, db)
 
     return {

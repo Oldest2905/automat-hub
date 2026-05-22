@@ -27,7 +27,7 @@ from backend.core.database import get_db
 from backend.core.security import get_current_user
 from backend.models.workshop import Workshop, Mechanic, RepairJob, JobStatus
 from backend.models.fleet import TrackedVehicle, VehicleAlert
-from backend.services.scan_service import process_hourly_scan
+from backend.services.manufacturer_service import process_hourly_scan
 from backend.config import settings
 
 router = APIRouter(prefix="/workshop", tags=["Workshop & Repairs"])
