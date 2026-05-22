@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Automat Hub - Investor Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #0f1115; --sidebar: #16181d; --accent: #f05a1e; --text: #e2e8f0; --text-muted: #94a3b8; --card: #1e2128; --green: #10b981; --border: #2d3748; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Layout */
+        .sidebar { width: 250px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+        .logo { font-size: 18px; font-weight: 700; color: var(--accent); padding: 24px; border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:10px;}
+        .logo-dot { width:12px; height:12px; background:var(--accent); border-radius:50%; box-shadow: 0 0 10px var(--accent); animation: pulse 2s infinite;}
+        
+        .nav { flex: 1; padding: 20px 0; }
+        .nav-item { padding: 12px 24px; color: var(--text-muted); cursor: pointer; transition: 0.2s; font-size: 14px; font-weight: 600; }
+        .nav-item:hover, .nav-item.active { background: rgba(240, 90, 30, 0.1); color: var(--accent); border-right: 3px solid var(--accent); }
+        
+        .role-selector { padding: 24px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .role-selector label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+        .role-selector select { width: 100%; padding: 10px; background: var(--bg); color: white; border: 1px solid var(--border); border-radius: 6px; font-family: 'Inter'; outline: none; }
+        
+        .main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .header { padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+        .content { padding: 30px; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        
+        /* Components */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 24px; }
+        .card { background: var(--card); border-radius: 12px; padding: 24px; border: 1px solid var(--border); }
+        .card h3 { margin: 0 0 16px 0; font-size: 15px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        .metric { font-size: 32px; font-weight: 700; color: white; margin-bottom: 4px; }
+        
+        .btn { background: var(--accent); color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px;}
+        .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+        
+        /* ThreeJS Canvas */
+        #three-container { width: 100%; height: 300px; border-radius: 8px; overflow: hidden; background: #000; }
+        
+        /* Simulation Progress */
+        .sim-box { margin-top: 15px; display: none; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        .progress-bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+        .progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.3s ease; }
+        .sim-text { font-size: 12px; color: var(--green); margin-top: 8px; font-family: monospace; }
+        
+        /* Toast */
+        #toast { position: fixed; bottom: 24px; right: 24px; background: var(--green); color: white; padding: 14px 24px; border-radius: 8px; font-weight: 600; transform: translateY(150%); transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        #toast.show { transform: translateY(0); }
+
+        /* Live Map Mock */
+        .map-container { height: 300px; background: #1a1d24; border-radius: 8px; position: relative; overflow: hidden; border: 1px solid var(--border); background-image: radial-gradient(#2d3748 1px, transparent 1px); background-size: 20px 20px;}
+        .map-dot { width: 14px; height: 14px; background: var(--accent); border-radius: 50%; position: absolute; top: 50%; left: 50%; box-shadow: 0 0 15px var(--accent); transition: all 1s ease-in-out; }
+        .map-dot::after { content: ''; position: absolute; width: 100%; height: 100%; background: inherit; border-radius: 50%; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+        .hidden { display: none !important; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; box-shadow: 0 0 15px var(--accent); } 100% { opacity: 0.5; } }
+        @keyframes ping { 75%, 100% { transform: scale(2.5); opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo"><div class="logo-dot"></div> The Automat Hub</div>
+        <div class="nav" id="nav-menu">
+            <div class="nav-item active" data-target="overview" data-roles="admin">Platform Overview</div>
+            <div class="nav-item" data-target="fleet" data-roles="fleet_owner">My Fleet & Telematics</div>
+            <div class="nav-item" data-target="tracking" data-roles="fleet_owner">Live GPS Tracking</div>
+            <div class="nav-item" data-target="dcp" data-roles="inspector,admin">DCP Issuance (Inspectors)</div>
+            <div class="nav-item" data-target="escrow" data-roles="buyer,admin">Escrow & Settlement</div>
+        </div>
+        <div class="role-selector">
+            <label>DEMO PERSONA</label>
+            <select id="role-select" onchange="switchRole()">
+                <option value="admin">Global Admin (Investor View)</option>
+                <option value="fleet_owner">Fleet Owner (Logistics)</option>
+                <option value="inspector">Certified Inspector</option>
+                <option value="buyer">Vehicle Buyer</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main">
+        <div class="header">
+            <h2 id="page-title" style="margin:0; font-size:18px;">Platform Overview</h2>
+            <div style="display:flex; gap:15px; align-items:center;">
+                <span style="font-size:12px; color:var(--green);">● API Systems Online</span>
+                <div style="width:32px; height:32px; background:var(--border); border-radius:50%;"></div>
+            </div>
+        </div>
+
+        <div class="content">
+            
+            <!-- SECTION: OVERVIEW (ADMIN) -->
+            <div id="sec-overview" class="section">
+                <div class="grid-2">
+                    <div class="card" style="padding:0; overflow:hidden; display:flex; flex-direction:column;">
+                        <h3 style="padding:24px 24px 0;">Trust Protocol Data Nodes</h3>
+                        <div id="three-container" style="flex:1;"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Platform Escrow Volume (USD)</h3>
+                        <canvas id="revenueChart" height="220"></canvas>
+                    </div>
+                </div>
+                <div class="grid-3">
+                    <div class="card">
+                        <h3>Active Vehicles</h3>
+                        <div class="metric">14,208</div>
+                        <div style="color:var(--green); font-size:12px;">+12% this month</div>
+                    </div>
+                    <div class="card">
+                        <h3>DCPs Issued</h3>
+                        <div class="metric">8,452</div>
+                        <div style="color:var(--green); font-size:12px;">+5% this week</div>
+                    </div>
+                    <div class="card">
+                        <h3>Escrow Success Rate</h3>
+                        <div class="metric">99.8%</div>
+                        <div style="color:var(--text-muted); font-size:12px;">Zero fraud reported</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: FLEET & OBD (FLEET OWNER) -->
+            <div id="sec-fleet" class="section hidden">
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Toyota Hilux - Plate: ABJ-123-XY</h3>
+                        <div style="margin-bottom:15px; font-size:14px; color:var(--text-muted);">Status: <span style="color:#ef4444;">Not Connected</span></div>
+                        <button class="btn" id="btn-link" onclick="runSim('link', ['Initializing Bluetooth LE...', 'Connecting to ELM327 Dongle...', 'Reading ECUs...', 'Syncing Telematics to Automat Hub...'], 'Vehicle Connected via OBD-II!')">
+                            Connect OBD-II Adapter
+                        </button>
+                        <div class="sim-box" id="sim-link">
+                            <div class="sim-text" id="sim-txt-link">Initializing...</div>
+                            <div class="progress-bar"><div class="progress-flex progress-fill" id="sim-prog-link"></div></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Fleet Health Overview</h3>
+                        <div style="width: 200px; margin: 0 auto;">
+                            <canvas id="healthChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: LIVE TRACKING (FLEET OWNER) -->
+            <div id="sec-tracking" class="section hidden">
+                <div class="card" style="margin-bottom:20px;">
+                    <h3>Live GPS Telemetry (WebSocket Push)</h3>
+                    <div class="map-container" id="map-area">
+                        <div class="map-dot" id="gps-dot"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-top:15px; font-family:monospace; color:var(--text-muted); font-size:12px;">
+                        <span id="gps-coords">LAT: 9.0765, LNG: 7.3986</span>
+                        <span>SPEED: <span id="gps-speed" style="color:var(--accent);">45</span> KM/H</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: DCP ISSUANCE (INSPECTOR) -->
+            <div id="sec-dcp" class="section hidden">
+                <div class="card" style="max-width: 600px; margin:0 auto;">
+                    <h3>Issue Digital Condition Passport (DCP)</h3>
+                    <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Inspector Role Verified. Cryptographic hashing active.</p>
+                    
+                    <div style="display:grid; gap:10px; margin-bottom:20px;">
+                        <input type="text" value="VIN: 1HGCM82633A00XXXX" disabled style="padding:10px; background:rgba(0,0,0,0.3); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+                        <input type="text" value="Overall Health Score: 92/100" disabled style="padding:10px; background:rgba(0,0,0,0.3); border:1px solid var(--border); color:var(--green); border-radius:4px;">
+                    </div>
+
+                    <button class="btn btn-block" style="width:100%" id="btn-dcp" onclick="runSim('dcp', ['Validating Inspector Credentials...', 'Compiling Diagnostics...', 'Generating SHA-256 Protocol Hash...', 'Writing to Immutable Ledger...'], 'DCP Issued: DCP-8A49F21B')">
+                        Generate Immutable DCP
+                    </button>
+                    <div class="sim-box" id="sim-dcp">
+                        <div class="sim-text" id="sim-txt-dcp">Initializing...</div>
+                        <div class="progress-bar"><div class="progress-fill" id="sim-prog-dcp"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: ESCROW (BUYER) -->
+            <div id="sec-escrow" class="section hidden">
+                <div class="card" style="max-width: 600px; margin:0 auto;">
+                    <h3>Vehicle Escrow Funding via Flutterwave</h3>
+                    <div style="padding:15px; background:rgba(240, 90, 30, 0.1); border:1px solid var(--accent); border-radius:6px; margin-bottom:20px;">
+                        <div style="font-size:12px; color:var(--accent); text-transform:uppercase;">Pending Transaction</div>
+                        <div style="font-size:24px; font-weight:700; margin-top:5px;">₦ 15,500,000</div>
+                        <div style="font-size:13px; color:var(--text-muted); margin-top:5px;">Toyota Camry 2018 (DCP Verified)</div>
+                    </div>
+
+                    <button class="btn btn-block" style="width:100%" id="btn-escrow" onclick="runSim('escrow', ['Redirecting to Flutterwave...', 'Processing Payment...', 'Webhook Received: charge.completed', 'Funds Secured in Escrow Wallet'], 'Escrow Funded Successfully!')">
+                        Pay Securely to Escrow
+                    </button>
+                    <div class="sim-box" id="sim-escrow">
+                        <div class="sim-text" id="sim-txt-escrow">Initializing...</div>
+                        <div class="progress-bar"><div class="progress-fill" id="sim-prog-escrow"></div></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast">Action Successful!</div>
+
+    <script>
+        // --- THREE.JS NETWORK VISUALIZATION ---
+        function initThreeJS() {
+            const container = document.getElementById('three-container');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            
+            // Create particles (representing vehicle data nodes)
+            const geometry = new THREE.BufferGeometry();
+            const particlesCount = 500;
+            const posArray = new Float32Array(particlesCount * 3);
+            
+            for(let i = 0; i < particlesCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 5;
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const material = new THREE.PointsMaterial({ size: 0.02, color: 0xf05a1e });
+            const particlesMesh = new THREE.Points(geometry, material);
+            
+            // Add wireframe car model
+            const carGroup = new THREE.Group();
+            
+            const bodyGeo = new THREE.BoxGeometry(2.4, 0.5, 1.2);
+            const bodyMat = new THREE.MeshBasicMaterial({ color: 0x2d3748, wireframe: true, transparent: true, opacity: 0.5 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            
+            const roofGeo = new THREE.BoxGeometry(1.2, 0.4, 1.0);
+            const roofMat = new THREE.MeshBasicMaterial({ color: 0xf05a1e, wireframe: true, transparent: true, opacity: 0.3 });
+            const roof = new THREE.Mesh(roofGeo, roofMat);
+            roof.position.set(-0.2, 0.45, 0);
+            
+            const wheelGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.2, 12);
+            const wheelMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8, wireframe: true, transparent: true, opacity: 0.4 });
+            
+            carGroup.add(body, roof);
+            [[-0.8, -0.25, 0.6], [-0.8, -0.25, -0.6], [0.8, -0.25, 0.6], [0.8, -0.25, -0.6]].forEach(pos => {
+                const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                wheel.rotation.x = Math.PI / 2;
+                wheel.position.set(...pos);
+                carGroup.add(wheel);
+            });
+            
+            // Add animated scanning laser line
+            const scanLineGeo = new THREE.PlaneGeometry(2.6, 0.03); // Adjust width to fit car
+            const scanLineMat = new THREE.MeshBasicMaterial({ color: 0xf05a1e, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+            const scanLine = new THREE.Mesh(scanLineGeo, scanLineMat);
+            scanLine.position.y = 0; // Start at center of the car
+            carGroup.add(scanLine);
+            
+            carGroup.scale.set(0.8, 0.8, 0.8);
+            
+            scene.add(particlesMesh);
+            scene.add(carGroup);
+            camera.position.z = 3.5;
+            
+            function animate() {
+                requestAnimationFrame(animate);
+                particlesMesh.rotation.y += 0.002;
+                particlesMesh.rotation.x += 0.001;
+                carGroup.rotation.y += 0.005;
+                
+                // Animate scan line up and down with pulsating opacity
+                scanLine.position.y = Math.sin(Date.now() * 0.002) * 0.7; // Move from -0.7 to 0.7
+                scanLine.material.opacity = 0.4 + (Math.sin(Date.now() * 0.002) + 1) * 0.2; // Pulsate opacity
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // Handle resize
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+
+        // --- CHART.JS INITIALIZATION ---
+        function initCharts() {
+            // Revenue Line Chart
+            const ctxRev = document.getElementById('revenueChart').getContext('2d');
+            new Chart(ctxRev, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Escrow Volume ($)',
+                        data: [120000, 190000, 300000, 450000, 600000, 850000],
+                        borderColor: '#f05a1e',
+                        backgroundColor: 'rgba(240, 90, 30, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: '#2d3748' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+
+            // Health Doughnut Chart
+            const ctxHealth = document.getElementById('healthChart').getContext('2d');
+            new Chart(ctxHealth, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Healthy', 'Warning', 'Critical'],
+                    datasets: [{
+                        data: [75, 20, 5],
+                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } },
+                    cutout: '75%'
+                }
+            });
+        }
+
+        // --- NAVIGATION & ROLE SWITCHING ---
+        function switchRole() {
+            const role = document.getElementById('role-select').value;
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            let firstVisibleTarget = null;
+            
+            navItems.forEach(item => {
+                const roles = item.getAttribute('data-roles').split(',');
+                if (roles.includes(role) || roles.includes('admin')) {
+                    item.style.display = 'flex';
+                    if (!firstVisibleTarget) firstVisibleTarget = item;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Auto-click the first available nav item for this role
+            if (firstVisibleTarget) firstVisibleTarget.click();
+        }
+
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                const target = e.target.getAttribute('data-target');
+                document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+                document.getElementById('sec-' + target).classList.remove('hidden');
+                document.getElementById('page-title').textContent = e.target.textContent;
+            });
+        });
+
+        // --- SIMULATION RUNNER (Visual Feedback) ---
+        function runSim(id, steps, successMessage) {
+            const btn = document.getElementById('btn-' + id);
+            const box = document.getElementById('sim-' + id);
+            const txt = document.getElementById('sim-txt-' + id);
+            const prog = document.getElementById('sim-prog-' + id);
+            
+            btn.disabled = true;
+            box.style.display = 'block';
+            prog.style.width = '0%';
+            
+            let currentStep = 0;
+            const stepTime = 1000; // 1 second per step
+            
+            const interval = setInterval(() => {
+                if (currentStep < steps.length) {
+                    txt.textContent = "> " + steps[currentStep];
+                    prog.style.width = ((currentStep + 1) / steps.length) * 100 + '%';
+                    currentStep++;
+                } else {
+                    clearInterval(interval);
+                    showToast(successMessage);
+                    txt.textContent = "> " + successMessage;
+                    txt.style.color = '#fff';
+                    btn.textContent = "Action Completed";
+                    btn.style.background = "var(--green)";
+                }
+            }, stepTime);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // --- LIVE TRACKING SIMULATION ---
+        setInterval(() => {
+            const dot = document.getElementById('gps-dot');
+            if(!dot) return;
+            const currentLeft = parseFloat(dot.style.left || 50);
+            const currentTop = parseFloat(dot.style.top || 50);
+            
+            // Move randomly by +/- 5%
+            dot.style.left = Math.max(10, Math.min(90, currentLeft + (Math.random() - 0.5) * 10)) + '%';
+            dot.style.top = Math.max(10, Math.min(90, currentTop + (Math.random() - 0.5) * 10)) + '%';
+            
+            document.getElementById('gps-speed').textContent = Math.floor(Math.random() * 20 + 40);
+            document.getElementById('gps-coords').textContent = `LAT: ${(9.07 + Math.random()*0.01).toFixed(4)}, LNG: ${(7.39 + Math.random()*0.01).toFixed(4)}`;
+        }, 2000);
+
+        // Init
+        initThreeJS();
+        initCharts();
+        switchRole(); // Setup initial view based on dropdown
+    </script>
+</body>
+</html>
