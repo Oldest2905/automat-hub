@@ -47,14 +47,14 @@ async def issue_dcp_endpoint(
     - Returns complete DCP record
     """
     # ── ROLE GATE — allowed roles can issue a DCP ──────
-    allowed_roles = {"inspector", "admin", "reseller", "mechanic"}
+    allowed_roles = {"inspector", "admin"}
     user_role = current_user.get("role", "")
 
     if user_role not in allowed_roles:
         raise HTTPException(
             status_code=403,
             detail=(
-                f"Access denied. DCP issuance requires inspector, admin, reseller, or mechanic role. "
+                f"Access denied. DCP issuance strictly requires an inspector or admin role. "
                 f"Your role is '{user_role}'. "
                 f"Contact the Automat Hub operations team to request inspector access."
             )
@@ -104,15 +104,9 @@ async def auto_issue_dcp_endpoint(
     raise HTTPException(status_code=404, detail="Vehicle not found")
 
     # 2. Role gate
-    allowed_roles = {"inspector", "admin", "reseller", "mechanic"}
+    allowed_roles = {"inspector", "admin"}
     if current_user.get("role") not in allowed_roles:
-            # Prevent IDOR: private users can only auto-issue for their own vehicles
-            if vehicle.owner_id != current_user["user_id"]:
-                raise HTTPException(status_code=403, detail="Access denied. You do not own this vehicle.")
-
-            # Allow private owners ONLY if they are using verified hardware
-            if vehicle.obd_connection_method not in ["obd_hardware", "manufacturer_api"]:
-                raise HTTPException(status_code=403, detail="Private owners can only auto-issue DCPs for hardware-connected vehicles.")
+        raise HTTPException(status_code=403, detail="Access denied. Only certified inspectors can auto-issue a DCP.")
 
     # 3. Get Latest Scan
     latest_scan = await db.scalar(

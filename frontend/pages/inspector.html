@@ -296,17 +296,25 @@
 
     // --- INITIALIZATION ---
     function checkAuth() {
-      if (TOKEN && USER && (USER.role === 'inspector' || USER.role === 'admin')) {
-        document.getElementById('login-view').classList.remove('active');
-        document.getElementById('app-bar').style.display = 'flex';
-        document.getElementById('u-name').textContent = USER.full_name.split(' ')[0];
-        loadDashboard();
-      } else {
-        document.getElementById('login-view').classList.add('active');
-        document.getElementById('dash-view').classList.remove('active');
-        document.getElementById('inspect-view').classList.remove('active');
-        document.getElementById('app-bar').style.display = 'none';
+      if (TOKEN && USER) {
+        if (USER.role === 'inspector' || USER.role === 'admin') {
+          document.getElementById('login-view').classList.remove('active');
+          document.getElementById('app-bar').style.display = 'flex';
+          document.getElementById('u-name').textContent = USER.full_name.split(' ')[0];
+          loadDashboard();
+          return;
+        } else {
+          // Force logout for private owners / non-inspectors who stumble here
+          localStorage.removeItem('tah_token');
+          localStorage.removeItem('tah_user');
+          TOKEN = ''; USER = null;
+          toast('Restricted area. Please log in with Inspector credentials.', 'err');
+        }
       }
+      document.getElementById('login-view').classList.add('active');
+      document.getElementById('dash-view').classList.remove('active');
+      document.getElementById('inspect-view').classList.remove('active');
+      document.getElementById('app-bar').style.display = 'none';
     }
 
     async function doLogin(e) {
