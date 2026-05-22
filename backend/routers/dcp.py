@@ -12,7 +12,7 @@ GET  /dcp/{dcp_id}           — Get DCP details (API key required)
 from datetime import datetime
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, update
 
 from backend.core.database import get_db
 from backend.core.security import get_current_user, verify_api_key
@@ -64,6 +64,20 @@ async def issue_dcp_endpoint(
 
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
+
+    # ── AUTO-LINK DCP TO OWNER'S DASHBOARD ──
+    if "dcp_id" in result:
+        vehicle_result = await db.execute(
+            select(TrackedVehicle).where(TrackedVehicle.vin == request.vehicle.vin.upper())
+        )
+        vehicle = vehicle_result.scalar_one_or_none()
+        if vehicle:
+            vehicle.latest_dcp_id = result["dcp_id"]
+            vehicle.latest_score = request.inspection.score
+            if request.inspection.score >= 80: vehicle.status = "healthy"
+            elif request.inspection.score >= 60: vehicle.status = "warning"
+            else: vehicle.status = "critical"
+            await db.flush()
 
     return {
         "success": True,

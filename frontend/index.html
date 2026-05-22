@@ -1776,6 +1776,13 @@
           </svg>
           Platform Admin
         </div>
+        <div class="ni" onclick="window.open('/frontend/pages/inspector.html', '_blank')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+          </svg>
+          Inspector App
+        </div>
       </nav>
 
       <nav class="nav-grp" id="grp-account">
@@ -2398,7 +2405,10 @@
         </div>
         <div class="card" style="margin-top:14px">
           <div class="card-hdr">
-            <div class="card-title">Active Alerts</div><span class="badge b-red" id="alert-count">0</span>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="card-title">Active Alerts</div><span class="badge b-red" id="alert-count">0</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="clearFleetAlerts()">Clear All</button>
           </div>
           <div id="fleet-alerts"></div>
         </div>
@@ -2539,6 +2549,7 @@
               <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-vehicles" onclick="adminTab('vehicles')">Global Vehicles</div>
               <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-dcps" onclick="adminTab('dcps')">Global DCPs</div>
               <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-escrows" onclick="adminTab('escrows')">Global Escrows</div>
+              <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-inspectors" onclick="adminTab('inspectors')">Inspectors</div>
             </div>
         </div>
 
@@ -2591,6 +2602,17 @@
           <div class="card">
               <div class="card-hdr"><div class="card-title">Global Escrow Registry</div><button class="btn btn-ghost btn-sm" onclick="loadAdminEscrows()">Refresh</button></div>
               <div class="tw"><table><thead><tr><th>Escrow ID</th><th>VIN</th><th>Buyer</th><th>Seller</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-escrows-table"></tbody></table></div>
+          </div>
+        </div>
+        
+        <!-- TAB: INSPECTORS -->
+        <div id="admin-inspectors" style="display:none;">
+          <div class="card">
+              <div class="card-hdr">
+                <div class="card-title">Certified Inspectors</div>
+                <button class="btn btn-orange btn-sm" onclick="openModal('new-inspector-modal')">+ Add Inspector</button>
+              </div>
+              <div class="tw"><table><thead><tr><th>Name</th><th>Email</th><th>Rating</th><th>DCPs Issued</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-inspectors-table"></tbody></table></div>
           </div>
         </div>
       </div>
@@ -2733,6 +2755,40 @@
           </select>
         </div>
         <button class="btn btn-orange btn-block" id="grant-sub-btn" onclick="doGrantSub()">Grant Access</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="book-inspection-modal">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-hdr">
+        <div class="modal-title">Book an Inspection</div>
+        <div class="modal-x" onclick="closeModal('book-inspection-modal')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.8rem; color:var(--c-text2); margin-bottom:16px; line-height:1.5;">Contact a certified Automat Hub inspector near you to verify your vehicle and issue a Digital Condition Passport.</p>
+        <div id="inspector-directory-list" style="display:flex; flex-direction:column; gap:12px;">
+          <div class="spin" style="display:block; margin:20px auto;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="new-inspector-modal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-hdr">
+        <div class="modal-title">Create Inspector Account</div>
+        <div class="modal-x" onclick="closeModal('new-inspector-modal')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+      </div>
+      <div class="modal-body">
+        <form onsubmit="doCreateInspector(event)" style="display:flex;flex-direction:column;gap:12px">
+          <div class="fg"><label>Full Name</label><input type="text" id="ni-name" required></div>
+          <div class="fg"><label>Email</label><input type="email" id="ni-email" required></div>
+          <div class="fg"><label>Phone</label><input type="text" id="ni-phone" required></div>
+          <div class="fg"><label>Temporary Password</label><input type="text" id="ni-pw" required></div>
+          <div style="font-size:0.75rem; color:var(--c-amber); margin-bottom:10px;">User will be assigned the 'Inspector' role permanently.</div>
+          <button type="submit" class="btn btn-orange btn-block" id="ni-btn">Create Inspector</button>
+        </form>
       </div>
     </div>
   </div>
@@ -3334,6 +3390,10 @@
       <button class="btn btn-ghost btn-sm" style="flex:1; border-color:var(--c-orange); color:var(--c-orange)" onclick="prepDCP('${v.vin}', '${v.make}', '${v.model}', '${v.year}', '${v.colour}')">
         Manual DCP
       </button>` : ''}
+      ${!canAutoIssue && !v.latest_dcp_id ? `
+      <button class="btn btn-ghost btn-sm" style="flex:1; border-color:var(--c-orange); color:var(--c-orange)" onclick="openBookInspection('${v.vin}')">
+        Book Inspection
+      </button>` : ''}
     </div>
     <div style="display:flex;gap:7px">
       <button class="btn btn-ghost btn-sm" id="connect-btn-${v.vehicle_id}" style="flex:2"
@@ -3497,6 +3557,25 @@
         } else {
             toast('Error', r?.d?.detail || 'Could not remove vehicle', 'err');
         }
+    };
+
+    window.openBookInspection = async function(vin) {
+        openModal('book-inspection-modal');
+        const list = document.getElementById('inspector-directory-list');
+        list.innerHTML = '<div class="spin" style="display:block; margin:20px auto;"></div>';
+        const r = await api('GET', '/fleet/inspectors/directory');
+        if (!r?.ok) { list.innerHTML = '<div class="alert alert-err show">Could not load directory</div>'; return; }
+        
+        const ins = r.d.inspectors || [];
+        list.innerHTML = ins.length === 0 ? '<div class="empty">No inspectors available in your area yet.</div>' : ins.map(i => `
+          <div style="background:var(--c-surface2); border:1px solid var(--c-border); padding:16px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:700; font-size:1rem; margin-bottom:4px;">${i.name} <span style="font-size:0.75rem; color:var(--c-orange);">★ ${i.rating}</span></div>
+              <div style="font-size:0.75rem; color:var(--c-text3);">${i.location}</div>
+            </div>
+            <a href="mailto:${i.email}?subject=Inspection Request for VIN: ${vin}" class="btn btn-orange btn-sm" style="text-decoration:none;">Contact</a>
+          </div>
+        `).join('');
     };
 
     // ── LINK VEHICLE ─────────────────────────────────────────────
@@ -3883,6 +3962,15 @@
       </div>`).join('');
     }
 
+    window.clearFleetAlerts = async function() {
+        if(!confirm('Clear all active notifications?')) return;
+        const r = await api('POST', '/fleet/alerts/clear');
+        if (r?.ok) {
+            toast('Alerts Cleared', 'All notifications dismissed', 'ok');
+            loadFleetAlerts();
+        }
+    };
+
     async function showVehicleDetail(vid) {
       const r = await api('GET', `/fleet/vehicle/${vid}/live`);
       if (!r?.ok) return;
@@ -4058,6 +4146,7 @@
         document.getElementById('tab-vehicles').classList.remove('active');
         document.getElementById('tab-dcps').classList.remove('active');
         document.getElementById('tab-escrows').classList.remove('active');
+        document.getElementById('tab-inspectors').classList.remove('active');
         document.getElementById(`tab-${tab}`).classList.add('active');
         
         document.getElementById('admin-powerbi').style.display = 'none';
@@ -4065,6 +4154,7 @@
         document.getElementById('admin-vehicles').style.display = 'none';
         document.getElementById('admin-dcps').style.display = 'none';
         document.getElementById('admin-escrows').style.display = 'none';
+        document.getElementById('admin-inspectors').style.display = 'none';
         document.getElementById(`admin-${tab}`).style.display = 'block';
 
         if (tab === 'powerbi') loadAdmin();
@@ -4072,6 +4162,7 @@
         if (tab === 'vehicles') loadAdminVehicles();
         if (tab === 'dcps') loadAdminDCPs();
         if (tab === 'escrows') loadAdminEscrows();
+        if (tab === 'inspectors') loadAdminInspectors();
     };
 
     async function loadAdmin() {
@@ -4228,6 +4319,44 @@
         const r = await api('DELETE', `/admin/escrows/${escrowId}`);
         if (r?.ok) { toast('Escrow Deleted', 'Escrow permanently removed', 'ok'); loadAdminEscrows(); loadAdmin(); }
         else { toast('Error', r?.d?.detail || 'Failed to delete escrow', 'err'); }
+    };
+
+    async function loadAdminInspectors() {
+        const r = await api('GET', '/admin/inspectors');
+        const tb = document.getElementById('admin-inspectors-table');
+        if (!r?.ok) { tb.innerHTML = `<tr><td colspan="6"><div class="empty">Error loading inspectors</div></td></tr>`; return; }
+        const ins = r.d.inspectors || [];
+        tb.innerHTML = ins.length === 0 ? '<tr><td colspan="6"><div class="empty">No active inspectors</div></td></tr>' : ins.map(i => `<tr>
+            <td style="font-weight:600">${i.full_name}</td>
+            <td class="mono" style="font-size:.75rem">${i.email}</td>
+            <td><span style="color:var(--c-orange);font-weight:700">★ ${i.rating}</span></td>
+            <td style="font-weight:700">${i.dcp_count}</td>
+            <td><span class="badge ${i.is_active ? 'b-green' : 'b-red'}">${i.is_active ? 'Active' : 'Suspended'}</span></td>
+            <td>
+                <div style="display:flex;gap:5px;">
+                    <button class="btn btn-danger btn-sm" onclick="adminDeleteUser('${i.user_id}')">${i.is_active ? 'Suspend' : 'Delete'}</button>
+                </div>
+            </td>
+        </tr>`).join('');
+    }
+
+    window.doCreateInspector = async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('ni-btn');
+        btn.innerHTML = '<div class="spin" style="display:block"></div>'; btn.disabled = true;
+        
+        // We re-use the standard registration endpoint, but enforce the inspector role
+        const r = await api('POST', '/auth/register', {
+            full_name: document.getElementById('ni-name').value,
+            email: document.getElementById('ni-email').value,
+            phone: document.getElementById('ni-phone').value,
+            password: document.getElementById('ni-pw').value,
+            role: 'inspector'
+        }, false);
+        
+        btn.innerHTML = 'Create Inspector'; btn.disabled = false;
+        if (r?.ok) { toast('Success', 'Inspector account created.', 'ok'); closeModal('new-inspector-modal'); loadAdminInspectors(); }
+        else { toast('Error', r?.d?.detail || 'Failed to create inspector', 'err'); }
     };
 
     window.exportAdminVehicles = async function() {

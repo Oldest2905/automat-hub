@@ -15,7 +15,7 @@ Fleet Owner can:
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func, and_
+from sqlalchemy import select, desc, func, and_, update
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
@@ -621,7 +621,8 @@ async def get_alerts(
         .where(
             and_(
                 VehicleAlert.user_id == current_user["user_id"],
-                VehicleAlert.is_resolved == resolved
+                VehicleAlert.is_resolved == resolved,
+                TrackedVehicle.status != "inactive"
             )
         )
     )
@@ -648,6 +649,38 @@ async def get_alerts(
             }
             for a in alerts
         ]
+    }
+
+@router.post("/alerts/clear", response_model=dict)
+async def clear_all_alerts(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Clear (resolve) all active alerts for the user."""
+    await db.execute(
+        update(VehicleAlert)
+        .where(VehicleAlert.user_id == current_user["user_id"])
+        .where(VehicleAlert.is_resolved == False)
+        .values(is_resolved=True)
+    )
+    await db.flush()
+    return {"success": True, "message": "All alerts cleared"}
+
+@router.get("/inspectors/directory", response_model=dict)
+async def get_inspectors_directory(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Public directory for users to find certified inspectors."""
+    from backend.models.user import User
+    result = await db.execute(select(User).where(User.role == "inspector", User.is_active == True))
+    inspectors = result.scalars().all()
+    
+    # In production, ratings would be pulled from an InspectorReviews table. 
+    # For now, we mock a high trust rating for certified staff.
+    return {
+        "success": True,
+        "inspectors": [{"id": i.user_id, "name": i.full_name, "email": i.email, "phone": i.phone or "Contact Hub", "rating": 4.9, "location": "The Automat Hub, Ibadan"} for i in inspectors]
     }
 
 

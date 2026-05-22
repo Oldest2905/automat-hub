@@ -324,6 +324,37 @@ async def delete_user(
 
     return {"success": True, "message": "User and all associated data permanently deleted."}
 
+@router.get("/inspectors", response_model=dict)
+async def list_inspectors(
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin)
+):
+    """List all certified inspectors and their performance metrics."""
+    query = select(User).where(User.role == "inspector")
+    result = await db.execute(query)
+    users = result.scalars().all()
+    
+    # Count DCPs issued per inspector
+    dcp_result = await db.execute(
+        select(DCPRecord.auditor_id, func.count(DCPRecord.id)).group_by(DCPRecord.auditor_id)
+    )
+    dcp_counts = dict(dcp_result.all())
+
+    inspectors = []
+    for u in users:
+        inspectors.append({
+            "user_id": u.user_id,
+            "full_name": u.full_name,
+            "email": u.email,
+            "phone": u.phone,
+            "is_active": u.is_active,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "dcp_count": dcp_counts.get(u.user_id, 0),
+            "rating": 4.9 # Default high rating for MVP
+        })
+        
+    return {"success": True, "inspectors": inspectors}
+
 # ── DCP MANAGEMENT ───────────────────────────────────────────
 
 @router.get("/dcps", response_model=dict)
