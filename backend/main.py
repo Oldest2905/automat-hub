@@ -5,7 +5,7 @@ Complete production-ready FastAPI application.
 import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, PlainTextResponse
 from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -134,3 +134,11 @@ async def health_check():
         "name": "The Automat Hub — Trust Protocol",
         "status": "healthy"
     }
+
+@app.get("/ping", tags=["Health"], response_class=PlainTextResponse)
+async def ping():
+    """
+    Ultra-lightweight health check endpoint.
+    Perfect for cron-job.org and other uptime monitors.
+    """
+    return "OK"
