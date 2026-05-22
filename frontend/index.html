@@ -2643,6 +2643,31 @@
     </div>
   </div>
 
+  <div class="modal-bg" id="delete-modal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-hdr">
+        <div class="modal-title" style="color: var(--c-red);">Permanently Delete Vehicle</div>
+        <div class="modal-x" onclick="closeModal('delete-modal')"><svg width="14" height="14" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg></div>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-err show" style="margin-bottom: 16px;">
+          <strong>Warning:</strong> All DCPs, telemetry, fault codes, and escrow history will be completely wiped from the global database. This action cannot be undone.
+        </div>
+        <div class="fg" style="margin-bottom: 20px;">
+          <label>Type DELETE to confirm</label>
+          <input type="text" id="del-confirm-inp" placeholder="DELETE" oninput="checkDeleteConfirm(this.value)">
+        </div>
+        <button class="btn btn-danger btn-block" id="del-confirm-btn" disabled onclick="doHardDeleteVehicle()">
+          Permanently Delete Vehicle
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ═══════════════════════════════════════════════════════════
     // THREE.JS BACKGROUND
@@ -3344,11 +3369,34 @@
         loadMyVehicles();
     };
 
-    window.removeVehicle = async function(vid) {
-        if (!confirm("Are you sure you want to remove this vehicle from your account? This will stop tracking and hide it from your dashboard.")) return;
-        const r = await api('POST', `/fleet/vehicle/${vid}/remove`);
+    let VEHICLE_TO_DELETE = null;
+    
+    window.removeVehicle = function(vid) {
+        VEHICLE_TO_DELETE = vid;
+        document.getElementById('del-confirm-inp').value = '';
+        document.getElementById('del-confirm-btn').disabled = true;
+        openModal('delete-modal');
+    };
+
+    window.checkDeleteConfirm = function(val) {
+        document.getElementById('del-confirm-btn').disabled = val.trim().toUpperCase() !== 'DELETE';
+    };
+
+    window.doHardDeleteVehicle = async function() {
+        if (!VEHICLE_TO_DELETE) return;
+        
+        const btn = document.getElementById('del-confirm-btn');
+        btn.innerHTML = '<div class="spin" style="display:block"></div>';
+        btn.disabled = true;
+
+        const r = await api('POST', `/fleet/vehicle/${VEHICLE_TO_DELETE}/remove`);
+        
+        btn.innerHTML = 'Permanently Delete Vehicle';
+        closeModal('delete-modal');
+        VEHICLE_TO_DELETE = null;
+        
         if (r?.ok) {
-            toast('Vehicle Removed', 'The vehicle has been removed from your profile.', 'ok');
+            toast('Vehicle Deleted', 'The vehicle and all associated records were permanently removed.', 'ok');
             loadMyVehicles();
         } else {
             toast('Error', r?.d?.detail || 'Could not remove vehicle', 'err');
