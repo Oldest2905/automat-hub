@@ -2565,6 +2565,10 @@
                <div class="card"><div class="card-hdr"><div class="card-title">Escrow Distribution</div></div><div style="height:200px;position:relative"><canvas id="adminChartEscrow"></canvas></div></div>
                <div class="card"><div class="card-hdr"><div class="card-title">DCP Issuance by Grade</div></div><div style="height:200px;position:relative"><canvas id="adminChartDCP"></canvas></div></div>
            </div>
+           <div class="card" style="margin-top:16px;">
+               <div class="card-hdr"><div class="card-title">Revenue by Inspector (NGN)</div></div>
+               <div style="height:280px;position:relative"><canvas id="adminChartInspectorRev"></canvas></div>
+           </div>
         </div>
 
         <!-- TAB: USER MANAGEMENT -->
@@ -2788,6 +2792,28 @@
           <div class="fg"><label>Temporary Password</label><input type="text" id="ni-pw" required></div>
           <div style="font-size:0.75rem; color:var(--c-amber); margin-bottom:10px;">User will be assigned the 'Inspector' role permanently.</div>
           <button type="submit" class="btn btn-orange btn-block" id="ni-btn">Create Inspector</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="rate-inspector-modal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-hdr">
+        <div class="modal-title">Rate Inspector</div>
+        <div class="modal-x" onclick="closeModal('rate-inspector-modal')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+      </div>
+      <div class="modal-body">
+        <div id="rate-stars" style="font-size: 2.5rem; color: var(--c-amber); text-align: center; cursor: pointer; margin-bottom: 16px; letter-spacing: 5px;">
+          <span data-val="1">★</span><span data-val="2">★</span><span data-val="3">★</span><span data-val="4">★</span><span data-val="5">★</span>
+        </div>
+        <form onsubmit="doSubmitRating(event)" style="display:flex;flex-direction:column;gap:12px">
+          <input type="hidden" id="ri-val" value="5">
+          <div class="fg">
+            <label>Review (Optional)</label>
+            <textarea id="ri-review" rows="3" placeholder="Share your experience during the inspection..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-orange btn-block" id="ri-btn">Submit Feedback</button>
         </form>
       </div>
     </div>
@@ -3394,6 +3420,10 @@
       <button class="btn btn-ghost btn-sm" style="flex:1; border-color:var(--c-orange); color:var(--c-orange)" onclick="openBookInspection('${v.vin}')">
         Book Inspection
       </button>` : ''}
+      ${v.latest_dcp_id && !canAutoIssue ? `
+      <button class="btn btn-ghost btn-sm" style="flex:1; border-color:var(--c-amber); color:var(--c-amber)" onclick="openRateInspector('${v.latest_dcp_id}')">
+        ★ Rate
+      </button>` : ''}
     </div>
     <div style="display:flex;gap:7px">
       <button class="btn btn-ghost btn-sm" id="connect-btn-${v.vehicle_id}" style="flex:2"
@@ -3576,6 +3606,34 @@
             <a href="mailto:${i.email}?subject=Inspection Request for VIN: ${vin}" class="btn btn-orange btn-sm" style="text-decoration:none;">Contact</a>
           </div>
         `).join('');
+    };
+
+    let RATE_DCP_ID = null;
+    document.querySelectorAll('#rate-stars span').forEach(star => {
+      star.addEventListener('click', (e) => {
+        const val = parseInt(e.target.getAttribute('data-val'));
+        document.getElementById('ri-val').value = val;
+        document.querySelectorAll('#rate-stars span').forEach(s => {
+          s.style.color = parseInt(s.getAttribute('data-val')) <= val ? 'var(--c-amber)' : 'var(--c-text3)';
+        });
+      });
+    });
+
+    window.openRateInspector = function(dcpId) {
+      RATE_DCP_ID = dcpId;
+      document.getElementById('ri-review').value = '';
+      document.getElementById('ri-val').value = 5;
+      document.querySelectorAll('#rate-stars span').forEach(s => s.style.color = 'var(--c-amber)');
+      openModal('rate-inspector-modal');
+    };
+
+    window.doSubmitRating = async function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('ri-btn');
+      btn.innerHTML = '<div class="spin" style="display:block"></div>'; btn.disabled = true;
+      const r = await api('POST', `/dcp/${RATE_DCP_ID}/rate`, { rating: parseInt(document.getElementById('ri-val').value), review: document.getElementById('ri-review').value });
+      btn.innerHTML = 'Submit Feedback'; btn.disabled = false;
+      if (r?.ok) { toast('Rating Submitted', 'Thank you for your feedback.', 'ok'); closeModal('rate-inspector-modal'); } else { toast('Error', r?.d?.detail || 'Failed to submit rating', 'err'); }
     };
 
     // ── LINK VEHICLE ─────────────────────────────────────────────
@@ -4233,6 +4291,14 @@
             type: 'bar',
             data: { labels: ['Grade A', 'Grade B', 'Grade C', 'Grade D'], datasets: [{ label: 'DCPs Issued', data: [dGrades['A']||0, dGrades['B']||0, dGrades['C']||0, dGrades['D']||0], backgroundColor: '#1A4A8C', borderRadius: 4 }] },
             options: { responsive: true, maintainAspectRatio: false }
+        }));
+
+        const iRev = c.inspector_revenue || {};
+        const inspCtx = document.getElementById('adminChartInspectorRev').getContext('2d');
+        adminCharts.push(new Chart(inspCtx, {
+            type: 'bar',
+            data: { labels: Object.keys(iRev), datasets: [{ label: 'Revenue Generated (NGN)', data: Object.values(iRev), backgroundColor: '#00D68F', borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
         }));
     }
 
