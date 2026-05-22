@@ -541,43 +541,4 @@
         switchRole(); // Setup initial view based on dropdown
     </script>
 </body>
-</html>         } else {
-                    clearInterval(interval);
-                    showToast(successMessage);
-                    txt.textContent = "> " + successMessage;
-                    txt.style.color = '#fff';
-                    btn.textContent = "Action Completed";
-                    btn.style.background = "var(--green)";
-                }
-            }, stepTime);
-        }
-
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 3000);
-        }
-
-        // --- LIVE TRACKING SIMULATION ---
-        setInterval(() => {
-            const dot = document.getElementById('gps-dot');
-            if(!dot) return;
-            const currentLeft = parseFloat(dot.style.left || 50);
-            const currentTop = parseFloat(dot.style.top || 50);
-            
-            // Move randomly by +/- 5%
-            dot.style.left = Math.max(10, Math.min(90, currentLeft + (Math.random() - 0.5) * 10)) + '%';
-            dot.style.top = Math.max(10, Math.min(90, currentTop + (Math.random() - 0.5) * 10)) + '%';
-            
-            document.getElementById('gps-speed').textContent = Math.floor(Math.random() * 20 + 40);
-            document.getElementById('gps-coords').textContent = `LAT: ${(9.07 + Math.random()*0.01).toFixed(4)}, LNG: ${(7.39 + Math.random()*0.01).toFixed(4)}`;
-        }, 2000);
-
-        // Init
-        initThreeJS();
-        initCharts();
-        switchRole(); // Setup initial view based on dropdown
-    </script>
-</body>
 </html>
