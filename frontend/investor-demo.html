@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Automat Hub - Investor Demo</title>
+    <link rel="icon" href="data:,">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -129,7 +130,9 @@
                     </div>
                     <div class="card">
                         <h3>Platform Escrow Volume (USD)</h3>
-                        <canvas id="revenueChart" height="220"></canvas>
+                        <div style="position: relative; height: 220px; width: 100%;">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
                     </div>
                 </div>
                 <div class="grid-3">
@@ -167,7 +170,7 @@
                     </div>
                     <div class="card">
                         <h3>Fleet Health Overview</h3>
-                        <div style="width: 200px; margin: 0 auto;">
+                        <div style="position: relative; height: 200px; width: 200px; margin: 0 auto;">
                             <canvas id="healthChart"></canvas>
                         </div>
                     </div>
