@@ -3,7 +3,9 @@ main.py - The Automat Hub API Entry Point
 Complete production-ready FastAPI application.
 """
 import os
-from fastapi import FastAPI, Request
+import secrets
+from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, PlainTextResponse
 from contextlib import asynccontextmanager
@@ -128,9 +130,22 @@ async def serve_cov():
     """Serves the Connect Vehicle page at the clean /cov URL"""
     return FileResponse("frontend/connect-vehicle.html")
 
+security = HTTPBasic()
+
+def verify_investor_demo(credentials: HTTPBasicCredentials = Depends(security)):
+    correct_username = secrets.compare_digest(credentials.username, "investor")
+    correct_password = secrets.compare_digest(credentials.password, "automat2026")
+    if not (correct_username and correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
 @app.get("/investor-demo", include_in_schema=False)
 @app.get("/investor-demo.html", include_in_schema=False)
-async def serve_investor_demo():
+async def serve_investor_demo(username: str = Depends(verify_investor_demo)):
     """Serves the Investor Demo page directly at the clean URL"""
     return FileResponse("frontend/investor-demo.html")
 
