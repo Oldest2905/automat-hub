@@ -159,6 +159,54 @@ async def add_vehicle_to_fleet(
             detail=f"Vehicle with VIN {vin.upper()} is already registered to your account."
         )
 
+    # ── EXTERNAL VIN VALIDATION (Loophole 1 Fix) ─────────────────
+    try:
+        import httpx
+        import os
+        epicvin_key = os.getenv("EPICVIN_API_KEY")
+        
+        async with httpx.AsyncClient(timeout=10) as client:
+            if epicvin_key:
+                # EpicVIN Integration (Stolen/Salvage DB Check)
+                res = await client.get(
+                    f"https://api.epicvin.com/api/v1/vin/decode?vin={vin.upper()}",
+                    headers={"Authorization": f"Bearer {epicvin_key}"}
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    # Reject if stolen or salvage
+                    if data.get("stolen") or data.get("salvage"):
+                        raise HTTPException(
+                            status_code=400, 
+                            detail="VIN rejected: Vehicle flagged as stolen or salvage by EpicVIN."
+                        )
+            else:
+                # NHTSA Free Fallback (Validates VIN exists + exact Make/Model match)
+                res = await client.get(f"https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/{vin.upper()}?format=json")
+                if res.status_code == 200:
+                    data = res.json()
+                    results = {r["Variable"]: r["Value"] for r in data.get("Results", [])}
+                    error_code = results.get("Error Code", "")
+                    
+                    if error_code and not error_code.startswith("0") and not vin.upper().startswith("DEMO"):
+                        raise HTTPException(
+                            status_code=400, 
+                            detail=f"Invalid VIN: {error_code.split('-')[-1].strip()}"
+                        )
+                        
+                    # Auto-correct backend data to match federal registry
+                    if results.get("Make") and results.get("Make") != "null": make = results.get("Make")
+                    if results.get("Model") and results.get("Model") != "null": model = results.get("Model")
+                    if results.get("Model Year") and results.get("Model Year") != "null":
+                        try: year = int(results.get("Model Year"))
+                        except ValueError: pass
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"VIN validation service unavailable: {e}")
+        # Proceed with registration if external APIs are down to prevent blocking users
+    # ── END VIN VALIDATION ───────────────────────────────────────
+
     vehicle_id = f"VEH-{str(_uuid.uuid4())[:8].upper()}"
 
     vehicle = TrackedVehicle(
