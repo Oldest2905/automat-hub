@@ -1904,19 +1904,19 @@
               </div>
               <div style="display:flex;flex-direction:column;gap:7px">
                 <button class="btn btn-ghost btn-block btn-sm" onclick="go('link-vehicle')">+ Link New Vehicle</button>
-                <button class="btn btn-ghost btn-block btn-sm" onclick="go('dcp-issue')">+ Issue DCP</button>
+                <button class="btn btn-ghost btn-block btn-sm" id="btn-quick-dcp" onclick="go('dcp-issue')">+ Issue DCP</button>
                 <button class="btn btn-ghost btn-block btn-sm" onclick="go('escrow-new')">+ Create Escrow</button>
               </div>
             </div>
           </div>
         </div>
 
-        <div style="margin-top:16px" class="card">
+        <div style="margin-top:16px" class="card" id="dash-recent-dcps">
           <div class="card-hdr">
             <div>
               <div class="card-title">Recent DCPs</div>
             </div>
-            <button class="btn btn-ghost btn-sm" onclick="go('dcp-issue')">Issue New</button>
+            <button class="btn btn-ghost btn-sm" id="btn-recent-dcp" onclick="go('dcp-issue')">Issue New</button>
           </div>
           <div class="tw">
             <table>
@@ -2418,9 +2418,6 @@
             <div class="map-area">
               <div class="map-grid"></div>
               <div class="map-glow"></div>
-              <div class="map-dot" style="top:40%;left:45%"></div>
-              <div class="map-dot" style="top:55%;left:62%;animation-delay:.6s"></div>
-              <div class="map-dot" style="top:35%;left:70%;animation-delay:1.2s"></div>
               <div
                 style="position:absolute;bottom:12px;left:12px;font-size:.68rem;color:rgba(255,255,255,.3);font-family:var(--f-mono)">
                 7.3775°N 3.9470°E — Ibadan Hub</div>
@@ -3007,11 +3004,17 @@
 
       // Show DCP Issue only to inspectors and admins
       // Verify remains visible to everyone (it's a public function)
+      const isAuthorisedDCP = ['inspector', 'admin', 'reseller', 'mechanic'].includes(USER?.role);
       const dcpIssueNav = document.querySelector('[onclick="go(\'dcp-issue\')"]');
       if (dcpIssueNav) {
-          const isAuthorised = ['inspector', 'admin'].includes(USER.role);
-          dcpIssueNav.style.display = isAuthorised ? '' : 'none';
+          dcpIssueNav.style.display = isAuthorisedDCP ? '' : 'none';
       }
+      
+      const quickDcpBtn = document.getElementById('btn-quick-dcp');
+      if (quickDcpBtn) quickDcpBtn.style.display = isAuthorisedDCP ? '' : 'none';
+      
+      const recentDcpsCard = document.getElementById('dash-recent-dcps');
+      if (recentDcpsCard) recentDcpsCard.style.display = isAuthorisedDCP ? '' : 'none';
 
       go('dashboard');
 
@@ -3200,6 +3203,9 @@
       }
       el.innerHTML = vehicles.map(v => {
         const hc = v.health_score >= 80 ? 'hi' : v.health_score >= 60 ? 'mid' : 'lo';
+        const canManualIssue = ['inspector', 'admin', 'reseller', 'mechanic'].includes(USER?.role);
+        const canAutoIssue = canManualIssue || ['obd_hardware', 'manufacturer_api'].includes(v.obd_connection_method);
+        
         return `<div class="vin-card" data-vin="${v.vin}">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
     <div class="vin-badge ${v.status==='healthy'?'b-green':v.status==='critical'?'b-red':'b-amber'}">${v.status}</div>
@@ -3226,9 +3232,14 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         Details
       </button>
+      ${canAutoIssue ? `
       <button class="btn btn-orange btn-sm" style="flex:1" onclick="autoIssueDCP('${v.vehicle_id}', '${v.vin}', '${v.make}', '${v.model}', '${v.year || ''}')">
-        Auto-Issue DCP
-      </button>
+        Auto-Issue
+      </button>` : ''}
+      ${canManualIssue ? `
+      <button class="btn btn-ghost btn-sm" style="flex:1; border-color:var(--c-orange); color:var(--c-orange)" onclick="prepDCP('${v.vin}', '${v.make}', '${v.model}', '${v.year}', '${v.colour}')">
+        Manual DCP
+      </button>` : ''}
     </div>
     <div style="display:flex;gap:7px">
       <button class="btn btn-ghost btn-sm" id="connect-btn-${v.vehicle_id}" style="flex:2"
@@ -3407,24 +3418,23 @@
       const btn = document.getElementById('scan-btn');
       btn.classList.add('loading'); btn.disabled = true;
       
-      // Match the score exactly with the vehicle dashboard telemetry
       const r = await api('GET', '/fleet/dashboard');
       const v = r?.d?.vehicles?.find(x => x.vin === vin);
-      const realScore = v?.health_score || Math.floor(Math.random() * 15) + 85;
-      const realOdo = v?.odometer_km || Math.floor(Math.random() * 60000) + 5000;
       
-      // Simulate connecting to OBD dongle or Manufacturer Cloud API
-      setTimeout(() => {
         btn.classList.remove('loading'); btn.disabled = false;
         
-        // Auto-fill hardware telemetry data to match health score exactly
-        document.getElementById('d-odo').value = realOdo;
-        document.getElementById('m1').value = realScore;
-        document.getElementById('m2').value = realScore;
-        document.getElementById('m3').value = 100;
-        document.getElementById('m4').value = 100;
-        document.getElementById('m5').value = 100;
-        document.getElementById('m6').value = realScore;
+        if (!v || !v.last_scan) {
+            return toast('Error', 'No telemetry data found for this VIN. Connect OBD-II or Manufacturer API first.', 'err');
+        }
+
+        // Auto-fill hardware telemetry data from actual vehicle record
+        document.getElementById('d-odo').value = v.odometer_km || 0;
+        document.getElementById('m1').value = v.health_score || 0;
+        document.getElementById('m2').value = v.health_score || 0;
+        document.getElementById('m3').value = v.health_score || 0;
+        document.getElementById('m4').value = v.health_score || 0;
+        document.getElementById('m5').value = v.health_score || 0;
+        document.getElementById('m6').value = v.health_score || 0;
         document.getElementById('d-faults').value = v?.fault_count > 0 ? (v.active_fault_codes || ['P0420']).join(', ') : '';
         
         // Lock fields to prevent human tampering
@@ -3438,8 +3448,7 @@
           }
         });
         
-        toast('OBD Scan Complete', 'Internal diagnostics fetched and locked securely.', 'ok');
-      }, 2000);
+        toast('OBD Scan Complete', 'Diagnostics fetched and locked securely.', 'ok');
     };
 
     async function doIssueDCP(e) {

@@ -241,8 +241,12 @@ async def remove_vehicle(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Remove a vehicle from the user's tracking profile by marking it as inactive.
+    Remove a vehicle globally and totally from the user's account and the platform.
     """
+    from backend.models.dcp import DCPRecord, DCPHashLedger, InspectionDetail, VerificationLog
+    from backend.models.fleet import HourlyScan, VehicleAlert, LocationHistory
+    from backend.models.workshop import RepairJob
+
     result = await db.execute(
         select(TrackedVehicle).where(
             and_(
@@ -256,15 +260,31 @@ async def remove_vehicle(
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
-    vehicle.status = "inactive"
-    vehicle.obd_connection_method = None
-    vehicle.obd_adapter_id = None
-    vehicle.fleet_id = None
+    vin = vehicle.vin
+
+    # Delete related fleet records
+    await db.execute(HourlyScan.__table__.delete().where(HourlyScan.vehicle_id == vehicle_id))
+    await db.execute(VehicleAlert.__table__.delete().where(VehicleAlert.vehicle_id == vehicle_id))
+    await db.execute(LocationHistory.__table__.delete().where(LocationHistory.vehicle_id == vehicle_id))
+    await db.execute(RepairJob.__table__.delete().where(RepairJob.vehicle_id == vehicle_id))
+    
+    # Delete related DCP records to totally purge the vehicle
+    dcp_result = await db.execute(select(DCPRecord.dcp_id).where(DCPRecord.vin == vin))
+    dcp_ids = dcp_result.scalars().all()
+    
+    if dcp_ids:
+        await db.execute(InspectionDetail.__table__.delete().where(InspectionDetail.dcp_id.in_(dcp_ids)))
+        await db.execute(VerificationLog.__table__.delete().where(VerificationLog.dcp_id.in_(dcp_ids)))
+        await db.execute(DCPHashLedger.__table__.delete().where(DCPHashLedger.vin == vin))
+        await db.execute(DCPRecord.__table__.delete().where(DCPRecord.vin == vin))
+
+    # Delete the vehicle itself
+    await db.delete(vehicle)
     await db.flush()
 
     return {
         "success": True,
-        "message": "Vehicle removed successfully"
+        "message": "Vehicle and all associated records permanently removed."
     }
 
 # ── FLEET DASHBOARD ──────────────────────────────────────────
