@@ -26,7 +26,7 @@ import uuid
 from backend.core.database import get_db
 from backend.core.security import get_current_user
 from backend.models.dcp import DCPRecord, VerificationLog, DCPHashLedger, InspectionDetail
-from backend.models.escrow import EscrowDeal
+from backend.models.escrow import EscrowDeal, EscrowEvent
 from backend.models.fleet import TrackedVehicle, HourlyScan, VehicleAlert, LocationHistory, Fleet
 from backend.models.workshop import Workshop, RepairJob
 from backend.models.user import User, ResellerAPIKey, Subscription
@@ -109,6 +109,38 @@ async def platform_overview(
         select(func.count(HourlyScan.id))
         .where(HourlyScan.scanned_at >= today_start)
     )
+    
+    # Chart Distributions
+    dcp_grades = await db.execute(select(DCPRecord.grade, func.count(DCPRecord.id)).group_by(DCPRecord.grade))
+    grade_dist = {g: c for g, c in dcp_grades.all()}
+    
+    escrow_status = await db.execute(select(EscrowDeal.status, func.count(EscrowDeal.id)).group_by(EscrowDeal.status))
+    escrow_dist = {s: c for s, c in escrow_status.all()}
+    
+    veh_status = await db.execute(select(TrackedVehicle.status, func.count(TrackedVehicle.id)).group_by(TrackedVehicle.status))
+    veh_dist = {s: c for s, c in veh_status.all()}
+    
+    # 6-Month Trend Data
+    trend_labels = []
+    vol_data = []
+    fees_data = []
+    users_data = []
+    
+    for i in range(5, -1, -1):
+        dt = now - timedelta(days=30*i)
+        start_dt = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_dt = start_dt.replace(year=start_dt.year+1, month=1) if start_dt.month == 12 else start_dt.replace(month=start_dt.month+1)
+            
+        trend_labels.append(start_dt.strftime("%b"))
+        
+        u_count = await db.scalar(select(func.count(User.id)).where(and_(User.created_at >= start_dt, User.created_at < end_dt)))
+        users_data.append(u_count or 0)
+        
+        vol = await db.scalar(select(func.sum(EscrowDeal.amount_usd)).where(and_(EscrowDeal.completed_at >= start_dt, EscrowDeal.completed_at < end_dt, EscrowDeal.status == "COMPLETED")))
+        vol_data.append(float(vol or 0))
+        
+        fees = await db.scalar(select(func.sum(EscrowDeal.platform_fee_amount)).where(and_(EscrowDeal.completed_at >= start_dt, EscrowDeal.completed_at < end_dt, EscrowDeal.status == "COMPLETED")))
+        fees_data.append(float(fees or 0))
 
     return {
         "success": True,
@@ -134,6 +166,15 @@ async def platform_overview(
         "workshops": {
             "active": active_workshops,
             "pending_approval": pending_workshops,
+        },
+        "charts": {
+            "trend_labels": trend_labels,
+            "escrow_volume": vol_data,
+            "escrow_fees": fees_data,
+            "new_users": users_data,
+            "dcp_grades": grade_dist,
+            "escrow_status": escrow_dist,
+            "vehicle_status": veh_dist
         }
     }
 
@@ -323,6 +364,33 @@ async def list_dcps(
             for d in dcps
         ]
     }
+    
+
+@router.delete("/dcps/{dcp_id}", response_model=dict)
+async def delete_dcp(
+    dcp_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin)
+):
+    """Hard delete a single DCP and its associated escrow deals globally."""
+    result = await db.execute(select(DCPRecord).where(DCPRecord.dcp_id == dcp_id))
+    dcp = result.scalar_one_or_none()
+    if not dcp:
+        raise HTTPException(status_code=404, detail="DCP not found")
+        
+    # Delete orphaned escrow links
+    await db.execute(EscrowEvent.__table__.delete().where(
+        EscrowEvent.escrow_id.in_(select(EscrowDeal.escrow_id).where(EscrowDeal.dcp_id == dcp_id))
+    ))
+    await db.execute(EscrowDeal.__table__.delete().where(EscrowDeal.dcp_id == dcp_id))
+    
+    await db.execute(InspectionDetail.__table__.delete().where(InspectionDetail.dcp_id == dcp_id))
+    await db.execute(VerificationLog.__table__.delete().where(VerificationLog.dcp_id == dcp_id))
+    await db.execute(DCPHashLedger.__table__.delete().where(DCPHashLedger.dcp_id == dcp_id))
+    await db.execute(DCPRecord.__table__.delete().where(DCPRecord.dcp_id == dcp_id))
+    
+    await db.flush()
+    return {"success": True, "message": "DCP permanently deleted."}
 
 
 # ── ESCROW MANAGEMENT ────────────────────────────────────────

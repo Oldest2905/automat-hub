@@ -2536,6 +2536,7 @@
               <div class="auth-tab active" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-powerbi" onclick="adminTab('powerbi')">Control Dashboard</div>
               <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-users" onclick="adminTab('users')">User Management</div>
               <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-vehicles" onclick="adminTab('vehicles')">Global Vehicles</div>
+              <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-dcps" onclick="adminTab('dcps')">Global DCPs</div>
             </div>
         </div>
 
@@ -2572,6 +2573,14 @@
                 </div>
               </div>
               <div class="tw"><table><thead><tr><th>Vehicle</th><th>VIN</th><th>Owner ID</th><th>Health</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-vehicles-table"></tbody></table></div>
+          </div>
+        </div>
+        
+        <!-- TAB: GLOBAL DCPS -->
+        <div id="admin-dcps" style="display:none;">
+          <div class="card">
+              <div class="card-hdr"><div class="card-title">Global DCP Registry</div><button class="btn btn-ghost btn-sm" onclick="loadAdminDCPs()">Refresh</button></div>
+              <div class="tw"><table><thead><tr><th>DCP ID</th><th>VIN</th><th>Vehicle</th><th>Score</th><th>Grade</th><th>Actions</th></tr></thead><tbody id="admin-dcps-table"></tbody></table></div>
           </div>
         </div>
       </div>
@@ -3472,7 +3481,9 @@
         if (r?.ok) {
             toast('Vehicle Deleted', 'The vehicle and all associated records were permanently removed.', 'ok');
             loadMyVehicles();
-            if (CUR_PAGE === 'admin') loadAdminVehicles();
+            if (CUR_PAGE === 'fleet') loadFleet();
+            if (CUR_PAGE === 'admin' && document.getElementById('tab-vehicles').classList.contains('active')) loadAdminVehicles();
+            if (CUR_PAGE === 'admin' && document.getElementById('tab-powerbi').classList.contains('active')) loadAdmin();
         } else {
             toast('Error', r?.d?.detail || 'Could not remove vehicle', 'err');
         }
@@ -4035,16 +4046,19 @@
         document.getElementById('tab-powerbi').classList.remove('active');
         document.getElementById('tab-users').classList.remove('active');
         document.getElementById('tab-vehicles').classList.remove('active');
+        document.getElementById('tab-dcps').classList.remove('active');
         document.getElementById(`tab-${tab}`).classList.add('active');
         
         document.getElementById('admin-powerbi').style.display = 'none';
         document.getElementById('admin-users').style.display = 'none';
         document.getElementById('admin-vehicles').style.display = 'none';
+        document.getElementById('admin-dcps').style.display = 'none';
         document.getElementById(`admin-${tab}`).style.display = 'block';
 
         if (tab === 'powerbi') loadAdmin();
         if (tab === 'users') loadAdminUsers();
         if (tab === 'vehicles') loadAdminVehicles();
+        if (tab === 'dcps') loadAdminDCPs();
     };
 
     async function loadAdmin() {
@@ -4072,13 +4086,16 @@
         Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
         Chart.defaults.font.family = "'Outfit', sans-serif";
 
+        const c = overview.charts || {};
+        const labels = c.trend_labels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+
         const revCtx = document.getElementById('adminChartRev').getContext('2d');
         adminCharts.push(new Chart(revCtx, {
             type: 'line',
             data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                datasets: [{ label: 'Escrow Volume ($)', data: [15000, 22000, 48000, 85000, 130000, (overview.escrow?.total_volume_usd || 210000)], borderColor: '#1A4A8C', backgroundColor: 'rgba(26, 74, 140, 0.1)', fill: true, tension: 0.4 },
-                           { label: 'Platform Fees ($)', data: [225, 330, 720, 1275, 1950, (overview.escrow?.total_fees_usd || 3150)], borderColor: '#00D68F', backgroundColor: 'rgba(0, 214, 143, 0.1)', fill: true, tension: 0.4 }]
+                labels: labels,
+                datasets: [{ label: 'Escrow Volume ($)', data: c.escrow_volume || [0,0,0,0,0,0], borderColor: '#1A4A8C', backgroundColor: 'rgba(26, 74, 140, 0.1)', fill: true, tension: 0.4 },
+                           { label: 'Platform Fees ($)', data: c.escrow_fees || [0,0,0,0,0,0], borderColor: '#00D68F', backgroundColor: 'rgba(0, 214, 143, 0.1)', fill: true, tension: 0.4 }]
             },
             options: { responsive: true, maintainAspectRatio: false }
         }));
@@ -4086,28 +4103,31 @@
         const usrCtx = document.getElementById('adminChartUsers').getContext('2d');
         adminCharts.push(new Chart(usrCtx, {
             type: 'bar',
-            data: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], datasets: [{ label: 'New Signups', data: [12, 45, 120, 310, 480, (overview.users?.total || 650)], backgroundColor: '#E88309', borderRadius: 4 }] },
+            data: { labels: labels, datasets: [{ label: 'New Signups', data: c.new_users || [0,0,0,0,0,0], backgroundColor: '#E88309', borderRadius: 4 }] },
             options: { responsive: true, maintainAspectRatio: false }
         }));
 
+        const vStatus = c.vehicle_status || {};
         const vehCtx = document.getElementById('adminChartVehicles').getContext('2d');
         adminCharts.push(new Chart(vehCtx, {
             type: 'doughnut',
-            data: { labels: ['Healthy', 'Warning', 'Critical'], datasets: [{ data: [65, 20, (overview.fleet?.critical_vehicles || 15)], backgroundColor: ['#00D68F', '#FFB830', '#FF4757'], borderWidth: 0 }] },
+            data: { labels: ['Healthy', 'Warning', 'Critical'], datasets: [{ data: [vStatus['healthy']||0, vStatus['warning']||0, vStatus['critical']||0], backgroundColor: ['#00D68F', '#FFB830', '#FF4757'], borderWidth: 0 }] },
             options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right' } } }
         }));
 
+        const eStatus = c.escrow_status || {};
         const escCtx = document.getElementById('adminChartEscrow').getContext('2d');
         adminCharts.push(new Chart(escCtx, {
             type: 'pie',
-            data: { labels: ['Funded', 'Completed', 'Disputed'], datasets: [{ data: [15, 80, 5], backgroundColor: ['#5B9EFF', '#00D68F', '#FF4757'], borderWidth: 0 }] },
+            data: { labels: ['Initiated', 'Funded', 'Matched', 'Completed', 'Disputed'], datasets: [{ data: [eStatus['INITIATED']||0, eStatus['FUNDED']||0, eStatus['DCP_MATCHED']||0, eStatus['COMPLETED']||0, eStatus['DISPUTED']||0], backgroundColor: ['#8A9BB5', '#1A4A8C', '#FF9D1A', '#00D68F', '#FF4757'], borderWidth: 0 }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
         }));
 
+        const dGrades = c.dcp_grades || {};
         const dcpCtx = document.getElementById('adminChartDCP').getContext('2d');
         adminCharts.push(new Chart(dcpCtx, {
             type: 'bar',
-            data: { labels: ['Grade A', 'Grade B', 'Grade C', 'Grade D'], datasets: [{ label: 'DCPs Issued', data: [450, 220, 80, 15], backgroundColor: '#1A4A8C', borderRadius: 4 }] },
+            data: { labels: ['Grade A', 'Grade B', 'Grade C', 'Grade D'], datasets: [{ label: 'DCPs Issued', data: [dGrades['A']||0, dGrades['B']||0, dGrades['C']||0, dGrades['D']||0], backgroundColor: '#1A4A8C', borderRadius: 4 }] },
             options: { responsive: true, maintainAspectRatio: false }
         }));
     }
@@ -4151,6 +4171,28 @@
             <td><button class="btn btn-danger btn-sm" onclick="removeVehicle('${v.vehicle_id}')">Hard Delete</button></td>
         </tr>`).join('');
     }
+
+    async function loadAdminDCPs() {
+        const r = await api('GET', '/admin/dcps');
+        const tb = document.getElementById('admin-dcps-table');
+        if (!r?.ok) { tb.innerHTML = `<tr><td colspan="6"><div class="empty">Error loading DCPs</div></td></tr>`; return; }
+        const ds = r.d.dcps || [];
+        tb.innerHTML = ds.length === 0 ? '<tr><td colspan="6"><div class="empty">No DCPs issued</div></td></tr>' : ds.map(d => `<tr>
+            <td class="mono" style="font-size:.75rem">${d.dcp_id}</td>
+            <td class="mono" style="font-size:.75rem">${d.vin}</td>
+            <td style="font-weight:600">${d.year} ${d.make} ${d.model}</td>
+            <td><span style="color:${d.score>=80?'var(--c-green)':d.score>=60?'var(--c-amber)':'var(--c-red)'};font-weight:700">${d.score||'N/A'}</span></td>
+            <td><span class="badge b-${d.grade === 'A' ? 'green' : d.grade === 'B' ? 'blue' : 'amber'}">${d.grade}</span></td>
+            <td><button class="btn btn-danger btn-sm" onclick="adminDeleteDCP('${d.dcp_id}')">Delete</button></td>
+        </tr>`).join('');
+    }
+
+    window.adminDeleteDCP = async function(dcpId) {
+        if (!confirm('Permanently delete this DCP? This will also wipe any attached escrow deals. Cannot be undone.')) return;
+        const r = await api('DELETE', `/admin/dcps/${dcpId}`);
+        if (r?.ok) { toast('DCP Deleted', 'DCP permanently removed', 'ok'); loadAdminDCPs(); loadAdmin(); }
+        else { toast('Error', r?.d?.detail || 'Failed to delete DCP', 'err'); }
+    };
 
     window.exportAdminVehicles = async function() {
         const r = await fetch(`${API_BASE}/admin/vehicles/export`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });

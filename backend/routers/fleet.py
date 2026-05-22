@@ -357,6 +357,13 @@ async def remove_vehicle(
     dcp_ids = dcp_result.scalars().all()
     
     if dcp_ids:
+        from backend.models.escrow import EscrowDeal, EscrowEvent
+        # Delete related escrows first to prevent foreign key orphaning
+        await db.execute(EscrowEvent.__table__.delete().where(
+            EscrowEvent.escrow_id.in_(select(EscrowDeal.escrow_id).where(EscrowDeal.dcp_id.in_(dcp_ids)))
+        ))
+        await db.execute(EscrowDeal.__table__.delete().where(EscrowDeal.dcp_id.in_(dcp_ids)))
+        
         await db.execute(InspectionDetail.__table__.delete().where(InspectionDetail.dcp_id.in_(dcp_ids)))
         await db.execute(VerificationLog.__table__.delete().where(VerificationLog.dcp_id.in_(dcp_ids)))
         await db.execute(DCPHashLedger.__table__.delete().where(DCPHashLedger.vin == vin))
