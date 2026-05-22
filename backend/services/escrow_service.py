@@ -366,9 +366,15 @@ async def _release_funds(deal: EscrowDeal, db: AsyncSession) -> dict:
     vehicle = await db.scalar(select(TrackedVehicle).where(TrackedVehicle.vin == deal.vin))
     buyer = await db.scalar(select(User).where(User.email == deal.buyer_email))
 
-    if vehicle and buyer:
-        vehicle.owner_id = buyer.user_id
-        vehicle.fleet_id = None # Clear any previous fleet associations
+    if vehicle:
+        if buyer:
+            vehicle.owner_id = buyer.user_id
+            
+        # CRITICAL SECURITY: Detach from fleet and wipe previous owner's telematics access
+        vehicle.fleet_id = None
+        vehicle.obd_connection_method = None
+        vehicle.obd_adapter_id = None
+        vehicle.manufacturer_api_token = None
 
     await log_event(
         escrow_id=deal.escrow_id,

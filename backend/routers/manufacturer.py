@@ -15,6 +15,7 @@ Flow:
 6. Data feeds into DCP hourly scan
 """
 
+import os
 import secrets
 import hashlib
 from datetime import datetime, timezone
@@ -112,6 +113,9 @@ async def initiate_connection(
     )
 
     mfr = MANUFACTURERS[manufacturer_id]
+    
+    if not os.getenv(mfr.get("client_id_env", "")):
+        raise HTTPException(status_code=501, detail=f"{mfr['name']} integration is not currently configured on this server.")
 
     return {
         "success": True,
@@ -119,10 +123,7 @@ async def initiate_connection(
         "oauth_url": oauth_url,
         "redirect_uri": redirect_uri,
         "instructions": f"Click the URL to log in with your {mfr['name']} account. "
-                        f"After login, your vehicle data will sync automatically every hour.",
-        "demo_mode": not bool(
-            __import__('os').getenv(mfr.get("client_id_env", ""), "")
-        )
+                        f"After login, your vehicle data will sync automatically every hour."
     }
 
 
@@ -150,8 +151,11 @@ async def oauth_callback(
     # Exchange code for token
     import os
     import httpx
-    client_id = os.getenv(mfr.get("client_id_env", ""), "demo_client_id")
-    client_secret = os.getenv(mfr.get("client_secret_env", ""), "demo_secret")
+    client_id = os.getenv(mfr.get("client_id_env", ""))
+    client_secret = os.getenv(mfr.get("client_secret_env", ""))
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=501, detail=f"OAuth credentials for {mfr['name']} are not configured.")
+        
     redirect_uri = f"{settings.APP_URL}/manufacturer/callback/{manufacturer_id}"
 
     try:
@@ -168,9 +172,11 @@ async def oauth_callback(
             )
             token_data = resp.json()
             access_token = token_data.get("access_token", "")
-    except Exception:
-        # Demo mode — simulate successful connection
-        access_token = f"demo_token_{manufacturer_id}_{state[:8]}"
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to communicate with {mfr['name']} API: {str(e)}"
+        )
 
     if not access_token:
         raise HTTPException(

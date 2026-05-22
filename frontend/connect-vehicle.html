@@ -405,7 +405,6 @@ body { font-family: var(--fb); background: var(--bg); color: var(--text); min-he
                   Detected Devices
                 <div>
                   <button class="btn btn-ghost btn-sm" onclick="scanBluetooth()">Scan</button>
-                  <button class="btn btn-ghost btn-sm" onclick="simulateBTDevices()" style="margin-left:4px" title="Use Demo Mode">Demo</button>
                 </div>
                 </div>
                 <div id="bt-devices">
@@ -789,7 +788,6 @@ async function scanBluetooth() {
 
   if (!navigator.bluetooth) {
     devDiv.innerHTML = '<div style="padding:12px;font-size:.75rem;color:var(--amber)">Web Bluetooth not available.<br>Use Chrome or Edge browser. Safari does not support this.</div>';
-    simulateBTDevices(); // show demo for non-BT browsers
     return;
   }
 
@@ -826,34 +824,8 @@ async function scanBluetooth() {
     toast('OBD Adapter Connected', `${deviceName} paired. Click Read Vehicle Data.`, 'ok');
   } catch (e) {
     devDiv.innerHTML = `<div style="padding:12px;font-size:.75rem;color:var(--red)">${e.message}</div>`;
-    // If user cancelled or no BT, fall back to demo
-    if (e.message?.includes('not available') || e.name === 'NotFoundError') {
-      simulateBTDevices();
-    }
     toast('Connection Failed', e.message, 'err');
   }
-}
-
-function simulateBTDevices() {
-  // Demo mode: show sample devices
-  const devices = [
-    { name: 'OBDII-V2.1', addr: '00:1A:7D:DA:71:13', signal: 4 },
-    { name: 'ELM327 BT',  addr: '66:45:B8:09:21:FF', signal: 3 },
-    { name: 'V-Link OBD', addr: 'AA:BB:CC:DD:EE:01', signal: 2 },
-  ];
-  document.getElementById('bt-devices').innerHTML = devices.map(d => `
-    <div class="bt-device" onclick="selectBTDevice('${d.name}','${d.addr}')">
-      <div class="bt-icon">📡</div>
-      <div>
-        <div class="bt-name">${d.name}</div>
-        <div class="bt-addr">${d.addr}</div>
-      </div>
-      <div class="bt-signal">
-        <div class="signal-bars">
-          ${[1,2,3,4].map(i=>`<div class="signal-bar" style="height:${i*3}px;opacity:${i<=d.signal?1:.2}"></div>`).join('')}
-        </div>
-      </div>
-    </div>`).join('');
 }
 
 function selectBTDevice(name, addr) {
@@ -889,12 +861,12 @@ async function readOBDData() {
       updateAllPIDs(data);
       if (data.fault_codes?.length) renderFaultCodes(data.fault_codes);
     } else {
-      // DEMO PATH: no physical dongle connected
-      await simulateOBDRead();
+      throw new Error("No physical OBD-II adapter connected.");
     }
   } catch (e) {
     toast('Read Error', e.message, 'err');
-    await simulateOBDRead(); // Fall back to demo
+    btn.classList.remove('loading'); btn.disabled = false;
+    return;
   }
 
   btn.classList.remove('loading'); btn.disabled = false;
@@ -903,32 +875,6 @@ async function readOBDData() {
   document.getElementById('rd-dot').className = 'status-dot connected';
   document.getElementById('rd-status-lbl').textContent = 'Data read complete';
   toast('Vehicle Data Read', 'ECU data pulled successfully.', 'ok');
-}
-
-// Simulate an OBD read for demo mode or browsers without Web Bluetooth
-async function simulateOBDRead() {
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  const demoData = {
-    source: 'obd_hardware',
-    adapter_id: PAIRED_ADAPTER?.id || 'DEMO_001',
-    adapter_name: PAIRED_ADAPTER?.name || 'Demo Adapter',
-    battery_voltage: 12.8,
-    engine_rpm: 850,
-    speed_kmh: 0,
-    coolant_temp_c: 92,
-    fuel_level_pct: 75,
-    oil_temp_c: 95,
-    odometer_km: 42500,
-    fault_codes: ['P0420'],
-    dtcs: ['P0420'],
-    location: {
-      lat: 7.3775 + (Math.random() * 0.02 - 0.01),
-      lng: 3.9470 + (Math.random() * 0.02 - 0.01)
-    }
-  };
-  OBD_DATA = demoData;
-  updateAllPIDs(demoData);
-  renderFaultCodes(demoData.fault_codes);
 }
 
 // Maps the raw JSON data to the visual dashboard elements

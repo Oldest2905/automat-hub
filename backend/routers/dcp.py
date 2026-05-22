@@ -92,10 +92,14 @@ async def auto_issue_dcp_endpoint(
     # 2. Role gate
     allowed_roles = {"inspector", "admin", "reseller", "mechanic"}
     if current_user.get("role") not in allowed_roles:
-        # Allow private owners ONLY if they are using verified hardware
-        if vehicle.obd_connection_method not in ["obd_hardware", "manufacturer_api"]:
-            raise HTTPException(status_code=403, detail="Private owners can only auto-issue DCPs for hardware-connected vehicles.")
-        
+            # Prevent IDOR: private users can only auto-issue for their own vehicles
+            if vehicle.owner_id != current_user["user_id"]:
+                raise HTTPException(status_code=403, detail="Access denied. You do not own this vehicle.")
+
+            # Allow private owners ONLY if they are using verified hardware
+            if vehicle.obd_connection_method not in ["obd_hardware", "manufacturer_api"]:
+                raise HTTPException(status_code=403, detail="Private owners can only auto-issue DCPs for hardware-connected vehicles.")
+
     # 3. Get Latest Scan
     latest_scan = await db.scalar(
         select(HourlyScan).where(HourlyScan.vehicle_id == vehicle_id).order_by(desc(HourlyScan.scanned_at)).limit(1)
