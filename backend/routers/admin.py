@@ -460,6 +460,25 @@ async def resolve_dispute(
         "resolved_by": admin["user_id"]
     }
 
+@router.delete("/escrows/{escrow_id}", response_model=dict)
+async def delete_escrow(
+    escrow_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin)
+):
+    """Hard delete a stuck escrow deal globally."""
+    result = await db.execute(select(EscrowDeal).where(EscrowDeal.escrow_id == escrow_id))
+    deal = result.scalar_one_or_none()
+    
+    if not deal:
+        raise HTTPException(status_code=404, detail="Escrow not found")
+        
+    # Delete events first to prevent foreign key errors
+    await db.execute(EscrowEvent.__table__.delete().where(EscrowEvent.escrow_id == escrow_id))
+    await db.execute(EscrowDeal.__table__.delete().where(EscrowDeal.escrow_id == escrow_id))
+    
+    await db.flush()
+    return {"success": True, "message": "Escrow permanently deleted."}
 
 # ── WORKSHOP MANAGEMENT ──────────────────────────────────────
 

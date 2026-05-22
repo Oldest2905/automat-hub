@@ -7,6 +7,7 @@
   <title>The Automat Hub — Trust Protocol Platform</title>
   <meta name="description"
     content="Nigeria's Vehicle Trust Infrastructure. Digital Condition Passport, Verified Escrow, Fleet Intelligence.">
+  <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
@@ -2537,6 +2538,7 @@
               <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-users" onclick="adminTab('users')">User Management</div>
               <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-vehicles" onclick="adminTab('vehicles')">Global Vehicles</div>
               <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-dcps" onclick="adminTab('dcps')">Global DCPs</div>
+              <div class="auth-tab" style="border-radius:6px; border:1px solid var(--c-border);" id="tab-escrows" onclick="adminTab('escrows')">Global Escrows</div>
             </div>
         </div>
 
@@ -2581,6 +2583,14 @@
           <div class="card">
               <div class="card-hdr"><div class="card-title">Global DCP Registry</div><button class="btn btn-ghost btn-sm" onclick="loadAdminDCPs()">Refresh</button></div>
               <div class="tw"><table><thead><tr><th>DCP ID</th><th>VIN</th><th>Vehicle</th><th>Score</th><th>Grade</th><th>Actions</th></tr></thead><tbody id="admin-dcps-table"></tbody></table></div>
+          </div>
+        </div>
+
+        <!-- TAB: GLOBAL ESCROWS -->
+        <div id="admin-escrows" style="display:none;">
+          <div class="card">
+              <div class="card-hdr"><div class="card-title">Global Escrow Registry</div><button class="btn btn-ghost btn-sm" onclick="loadAdminEscrows()">Refresh</button></div>
+              <div class="tw"><table><thead><tr><th>Escrow ID</th><th>VIN</th><th>Buyer</th><th>Seller</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-escrows-table"></tbody></table></div>
           </div>
         </div>
       </div>
@@ -4047,18 +4057,21 @@
         document.getElementById('tab-users').classList.remove('active');
         document.getElementById('tab-vehicles').classList.remove('active');
         document.getElementById('tab-dcps').classList.remove('active');
+        document.getElementById('tab-escrows').classList.remove('active');
         document.getElementById(`tab-${tab}`).classList.add('active');
         
         document.getElementById('admin-powerbi').style.display = 'none';
         document.getElementById('admin-users').style.display = 'none';
         document.getElementById('admin-vehicles').style.display = 'none';
         document.getElementById('admin-dcps').style.display = 'none';
+        document.getElementById('admin-escrows').style.display = 'none';
         document.getElementById(`admin-${tab}`).style.display = 'block';
 
         if (tab === 'powerbi') loadAdmin();
         if (tab === 'users') loadAdminUsers();
         if (tab === 'vehicles') loadAdminVehicles();
         if (tab === 'dcps') loadAdminDCPs();
+        if (tab === 'escrows') loadAdminEscrows();
     };
 
     async function loadAdmin() {
@@ -4192,6 +4205,29 @@
         const r = await api('DELETE', `/admin/dcps/${dcpId}`);
         if (r?.ok) { toast('DCP Deleted', 'DCP permanently removed', 'ok'); loadAdminDCPs(); loadAdmin(); }
         else { toast('Error', r?.d?.detail || 'Failed to delete DCP', 'err'); }
+    };
+
+    async function loadAdminEscrows() {
+        const r = await api('GET', '/admin/escrows');
+        const tb = document.getElementById('admin-escrows-table');
+        if (!r?.ok) { tb.innerHTML = `<tr><td colspan="7"><div class="empty">Error loading escrows</div></td></tr>`; return; }
+        const es = r.d.escrows || [];
+        tb.innerHTML = es.length === 0 ? '<tr><td colspan="7"><div class="empty">No escrow deals present</div></td></tr>' : es.map(e => `<tr>
+            <td class="mono" style="font-size:.75rem">${e.escrow_id}</td>
+            <td class="mono" style="font-size:.75rem">${e.vin}</td>
+            <td style="font-weight:600">${e.buyer_name}</td>
+            <td style="font-weight:600">${e.seller_name}</td>
+            <td style="font-weight:700;color:var(--c-green)">$${(e.amount_usd || 0).toLocaleString()}</td>
+            <td><span class="badge b-${e.status === 'COMPLETED' ? 'green' : e.status === 'DISPUTED' ? 'red' : 'amber'}">${e.status}</span></td>
+            <td><button class="btn btn-danger btn-sm" onclick="adminDeleteEscrow('${e.escrow_id}')">Delete</button></td>
+        </tr>`).join('');
+    }
+
+    window.adminDeleteEscrow = async function(escrowId) {
+        if (!confirm('Permanently delete this escrow deal? Cannot be undone.')) return;
+        const r = await api('DELETE', `/admin/escrows/${escrowId}`);
+        if (r?.ok) { toast('Escrow Deleted', 'Escrow permanently removed', 'ok'); loadAdminEscrows(); loadAdmin(); }
+        else { toast('Error', r?.d?.detail || 'Failed to delete escrow', 'err'); }
     };
 
     window.exportAdminVehicles = async function() {

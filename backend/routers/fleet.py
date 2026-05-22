@@ -615,10 +615,14 @@ async def get_alerts(
     current_user: dict = Depends(get_current_user)
 ):
     """Get all alerts for fleet owner."""
-    query = select(VehicleAlert).where(
-        and_(
-            VehicleAlert.user_id == current_user["user_id"],
-            VehicleAlert.is_resolved == resolved
+    query = (
+        select(VehicleAlert)
+        .join(TrackedVehicle, VehicleAlert.vehicle_id == TrackedVehicle.vehicle_id)
+        .where(
+            and_(
+                VehicleAlert.user_id == current_user["user_id"],
+                VehicleAlert.is_resolved == resolved
+            )
         )
     )
     if severity:
