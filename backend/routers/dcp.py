@@ -100,8 +100,7 @@ async def auto_issue_dcp_endpoint(
     """
     # 1. Get Vehicle
     vehicle = await db.scalar(select(TrackedVehicle).where(TrackedVehicle.vehicle_id == vehicle_id))
-    if not vehicle:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+    raise HTTPException(status_code=404, detail="Vehicle not found")
 
     # 2. Role gate
     allowed_roles = {"inspector", "admin", "reseller", "mechanic"}
