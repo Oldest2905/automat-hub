@@ -128,6 +128,12 @@ async def serve_cov():
     """Serves the Connect Vehicle page at the clean /cov URL"""
     return FileResponse("frontend/connect-vehicle.html")
 
+@app.get("/investor-demo", include_in_schema=False)
+@app.get("/investor-demo.html", include_in_schema=False)
+async def serve_investor_demo():
+    """Serves the Investor Demo page directly at the clean URL"""
+    return FileResponse("frontend/investor-demo.html")
+
 @app.get("/api/health", tags=["Health"])
 async def health_check():
     return {
